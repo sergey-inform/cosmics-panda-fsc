@@ -20,6 +20,8 @@ from matplotlib	import pyplot as plt
 import numpy
 from numpy import diff, sign
 
+import test_fit0
+
 
 def parse_cmdline_args():
 	''' Parse command line arguments or print usage information. '''
@@ -113,6 +115,8 @@ def main():
 		except KeyError:
 			data[(chan,trig)] = [val]
 	
+	for a in data:
+		print a
 	
 	# 3. Create a subdirectory for plots in current/working directory
 	filename = os.path.basename(infile.name)
@@ -136,6 +140,7 @@ def main():
 		
 		for trig in triggers:
 			if (chan,trig) in data and trig not in exclude:
+
 				values = data[(chan,trig)]
 				nevents = len(values)
 				
@@ -156,7 +161,7 @@ def main():
 				min_ = (diff(sign(diff(n_smooth_range))) > 0).nonzero()[0] + 1 # local min
 				max_ = (diff(sign(diff(n_smooth_range))) < 0).nonzero()[0] + 1 # local max
 				
-				if min_:
+				if len(min_):
 					min_ = min_[0] + range_[0]
 				else:
 					min_ = 0
@@ -164,6 +169,9 @@ def main():
 				max_ = max_[-1]
 				
 				print chan, trig, 'min', min_, 'max', max_
+				
+				test_fit0.draw_fit_hist(values, "## %s %s"% (chan, trig) )
+					
 					
 			#crop the data by y value at min.
 			
