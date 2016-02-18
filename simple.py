@@ -15,6 +15,7 @@ ________________________________________________________________________
 import os, sys
 import argparse
 from operator import itemgetter
+import itertools
 
 from matplotlib	import pyplot as plt
 import numpy
@@ -79,8 +80,6 @@ def smooth(x):
 	return numpy.convolve(w/w.sum(),s,mode='same')[window-1:-window+1]
 	
 	
-	
-
 def main():
 	# 1. Read command line arguments
 	args = parse_cmdline_args()
@@ -111,12 +110,13 @@ def main():
 	
 		#save values 
 		try:
-			data[(chan,trig)].append(val)
+			data[chan][trig].append(val)
 		except KeyError:
-			data[(chan,trig)] = [val]
+			if chan not in data:
+				data[chan] = {}
+			data[chan][trig] = [val]
 	
-	for a in data:
-		print a
+	print('channels: %s' %data.keys())
 	
 	# 3. Create a subdirectory for plots in current/working directory
 	filename = os.path.basename(infile.name)
@@ -129,19 +129,27 @@ def main():
 	
 	
 	# 4. Plot the histograms
-	channels, triggers = map(set, zip(*data))
 	histograms = {}
 	opts = {'range':(200,10000), 'bins':100, 'alpha':0.9, 'normed': 1,  'histtype':'step'}
 	exclude = 'ALL',
 	
-	for chan in channels:
+	for chan in data.keys():
 		filename = plotdir_name + '/chan%d.png'%chan
 		plt.clf()
 		
-		for trig in triggers:
-			if (chan,trig) in data and trig not in exclude:
+		values = []
+		#~ for x in data[chan]:
+			#~ if data[chan] not in exclude:
+				#~ values.extend(data[chan][x])
+		
+		#~ test_fit0.draw_fit_hist(values, "## %s %s"% (chan, 'concat') )
+		
+		#~ continue
+		
+		for trig in data[chan]:
+			if trig not in exclude:
 
-				values = data[(chan,trig)]
+				values = data[chan][trig]
 				nevents = len(values)
 				
 				label = str(trig) + ': ' + str(nevents)	
@@ -168,7 +176,7 @@ def main():
 				
 				max_ = max_[-1]
 				
-				print chan, trig, 'min', min_, 'max', max_
+				#~ print chan, trig, 'min', min_, 'max', max_
 				
 				test_fit0.draw_fit_hist(values, "## %s %s"% (chan, trig) )
 					
@@ -181,7 +189,8 @@ def main():
 		ax.set_ylim([0,0.00030])
 		
 		plt.legend()
-		plt.savefig(filename)
+		plt.draw()
+		#~ plt.savefig(filename)
 		
 	
 	
