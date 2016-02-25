@@ -20,6 +20,7 @@ def main():
 	
 	parser.add_argument('-c','--chan',
 			type=str,
+			default='0',
 			help='channel number')
 			
 	parser.add_argument('--fit', 
@@ -33,7 +34,7 @@ def main():
 	data = {}
 	
 	for line in args.infile:
-		columns = line[:-1].split('\t') #stip '\n' without making a copy of the strin
+		columns = line[:-1].split() #stip '\n' without making a copy of the strin
 		chan = columns[CHAN_COL_NUM]
 		
 		if args.chan and chan != args.chan:
@@ -60,7 +61,7 @@ def main():
 	if (args.fit):
 		import test_fit0
 		for trig in data:
-			title = "chan %s trig %s"% (chan, trig)
+			title = "chan %s trig %s"% (args.chan, trig)
 			test_fit0.draw_fit_hist(data[trig],"", title= title)
 	else:
 		#plot hist with no fit
@@ -70,17 +71,17 @@ def main():
 		for trig in data:
 			arr = np.array(data[trig])
 			
-			
 			mean = np.mean(arr)
 			std = np.std(arr)
 			min_ = np.percentile(arr, 1)
 			max_ = np.percentile(arr, 80)
 			range_ = (min_, max_)
 			
-			title = "chan %s trig %s"% (chan, trig)
+			title = "chan %s trig %s"% (args.chan, trig)
 			plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0)
 			
 			plt.title(title)
-			plt.show(block=False)
+			plt.show()
+			
 if __name__ == "__main__":
 	main()
