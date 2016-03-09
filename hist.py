@@ -8,6 +8,31 @@ CHAN_COL_NUM = 1
 TRIG_COL_NUM = 2
 DATA_COL_NUM = 3
 
+
+def hist(data, title, outfn=None, histopts={}):
+	import matplotlib.pyplot as plt
+	import numpy as np
+
+	arr = np.array(data)
+	
+	mean = np.mean(arr)
+	std = np.std(arr)
+	min_ = np.percentile(arr, 1)
+	max_ = np.percentile(arr, 99)
+	range_ = (min_, max_)
+	
+	plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0)
+	plt.title(title)
+	
+	plt.xlim(0.0, plt.xlim()[1]) #begin x from 0
+	
+	if not outfn:
+		plt.show()
+	else:
+		plt.savefig(outfn)
+	
+	
+
 def main():
 	parser = argparse.ArgumentParser(description=__doc__,
 		formatter_class=argparse.RawTextHelpFormatter,
@@ -17,6 +42,11 @@ def main():
 			type=argparse.FileType('r'),
 			default=sys.stdin,
 			help='data file (stdin by default)')
+	
+	parser.add_argument('-o','--output',
+			type=str,
+			default=None,
+			help='plot to file instead of a screen')
 	
 	parser.add_argument('-c','--chan',
 			type=str,
@@ -65,23 +95,10 @@ def main():
 			test_fit0.draw_fit_hist(data[trig],"", title= title)
 	else:
 		#plot hist with no fit
-		import matplotlib.pyplot as plt
-		import numpy as np
-		
 		for trig in data:
-			arr = np.array(data[trig])
-			
-			mean = np.mean(arr)
-			std = np.std(arr)
-			min_ = np.percentile(arr, 1)
-			max_ = np.percentile(arr, 80)
-			range_ = (min_, max_)
-			
 			title = "chan %s trig %s"% (args.chan, trig)
-			plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0)
-			
-			plt.title(title)
-			plt.show()
+			hist(data[trig], title, outfn = args.output)
+		
 			
 if __name__ == "__main__":
 	main()
