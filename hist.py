@@ -50,7 +50,7 @@ def main():
 	
 	parser.add_argument('-c','--chan',
 			type=str,
-			default='0',
+			default=None,
 			help='channel number')
 			
 	parser.add_argument('--fit', 
@@ -63,11 +63,16 @@ def main():
 	skipped_count = 0
 	data = {}
 	
+	desired_chan = args.chan
+	
 	for line in args.infile:
 		columns = line[:-1].split() #stip '\n' without making a copy of the strin
 		chan = columns[CHAN_COL_NUM]
 		
-		if args.chan and chan != args.chan:
+		if not desired_chan: #if -c not set, get the first column
+			desired_chan = chan
+			 
+		if chan != desired_chan:
 			skipped_count += 1
 			continue
 		
@@ -91,12 +96,12 @@ def main():
 	if (args.fit):
 		import test_fit0
 		for trig in data:
-			title = "chan %s trig %s"% (args.chan, trig)
+			title = "chan %s trig %s"% (desired_chan, trig)
 			test_fit0.draw_fit_hist(data[trig],"", title= title)
 	else:
 		#plot hist with no fit
 		for trig in data:
-			title = "chan %s trig %s"% (args.chan, trig)
+			title = "chan %s trig %s"% (desired_chan, trig)
 			hist(data[trig], title, outfn = args.output)
 		
 			
