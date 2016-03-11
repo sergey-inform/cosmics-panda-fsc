@@ -10,28 +10,42 @@ DATA_COL_NUM = 3
 
 
 def hist(data, title, outfn=None, histopts={}):
+	import matplotlib as mpl
+	mpl.use('Agg')
 	import matplotlib.pyplot as plt
 	import numpy as np
 
+	if not outfn:
+		plt.switch_backend('WX')
+
 	arr = np.array(data)
 	
+	print 'arr'
+
 	mean = np.mean(arr)
 	std = np.std(arr)
 	min_ = np.percentile(arr, 1)
-	max_ = np.percentile(arr, 99)
+	max_ = np.percentile(arr, 80)
 	range_ = (min_, max_)
+
+	print 'stat'
 	
 	plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0)
 	plt.title(title)
-	
+
+	print 'hist'	
 	plt.xlim(0.0, plt.xlim()[1]) #begin x from 0
+	#plt.xlim( plt.xlim()[0], 2500.0) #set x max
 	
 	if not outfn:
+		fig =plt.gcf()
+		fig.set_tight_layout(True)	
 		plt.show()
 	else:
 		plt.savefig(outfn)
 	
 	
+	print 'done'
 
 def main():
 	parser = argparse.ArgumentParser(description=__doc__,
