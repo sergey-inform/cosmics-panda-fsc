@@ -8,6 +8,7 @@ CHAN_COL_NUM = 1
 TRIG_COL_NUM = 2
 DATA_COL_NUM = 3
 
+EXCLUDE=['ALL', ]
 
 def hist(data, title, outfn=None, histopts={}):
 	import matplotlib as mpl
@@ -30,13 +31,14 @@ def hist(data, title, outfn=None, histopts={}):
 
 	print 'stat'
 	
-	plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0)
+	plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0, label=title)
 	plt.title(title)
+	plt.legend()
 
 	print 'hist'	
 	plt.xlim(0.0, plt.xlim()[1]) #begin x from 0
-	#plt.xlim( plt.xlim()[0], 2500.0) #set x max
-	
+	plt.xlim( plt.xlim()[0], 2500.0) #set x max
+
 	if not outfn:
 		fig =plt.gcf()
 		fig.set_tight_layout(True)	
@@ -115,8 +117,9 @@ def main():
 	else:
 		#plot hist with no fit
 		for trig in data:
-			title = "chan %s trig %s"% (desired_chan, trig)
-			hist(data[trig], title, outfn = args.output)
+			if trig not in EXCLUDE:
+				title = "chan %s trig %s"% (desired_chan, trig)
+				hist(data[trig], title, outfn = args.output)
 		
 			
 if __name__ == "__main__":
