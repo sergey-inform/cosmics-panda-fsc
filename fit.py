@@ -17,45 +17,6 @@ VAL_COL_NUM  = 3	# value (float)
 
 EXCLUDE_TRIG=['ALL', ]
 
-def hist(data, title, outfn=None, histopts={}):
-	import matplotlib as mpl
-	mpl.use('Agg')
-	import matplotlib.pyplot as plt
-	import numpy as np
-
-	if not outfn:
-		plt.switch_backend('WX')
-
-	arr = np.array(data)
-	
-	print 'arr'
-
-	mean = np.mean(arr)
-	std = np.std(arr)
-	min_ = np.percentile(arr, 1)
-	max_ = np.percentile(arr, 80)
-	range_ = (min_, max_)
-
-	print 'stat'
-	
-	plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0, label=title)
-	plt.title(title)
-	plt.legend()
-
-	print 'hist'	
-	plt.xlim(0.0, plt.xlim()[1]) #begin x from 0
-	plt.xlim( plt.xlim()[0], 2500.0) #set x max
-
-	if not outfn:
-		fig =plt.gcf()
-		fig.set_tight_layout(True)	
-		plt.show()
-	else:
-		plt.savefig(outfn)
-	
-	
-	print 'done'
-
 
 def parse_cmdline():
 	''' 
@@ -132,7 +93,7 @@ def parse_infile(infile, chan=None):
 			continue
 		
 		try:
-			data[ch][tr] = val
+			data[ch][tr].append(val)
 			
 		except KeyError:
 			if ch not in data:
@@ -140,11 +101,86 @@ def parse_infile(infile, chan=None):
 			if tr not in data[ch]:
 				data[ch][tr] = []
 			
-			data[ch][tr] = val
-	
+			data[ch][tr].append(val)
+		
 	sys.stderr.write("* lines count: %d (skipped:%d, processed:%d) \n" %(lcount, lcount_skipped, lcount-lcount_skipped))
 	return data
+
+
+def gauss_expnoise(x,par):
+	return x*x
+
+def fit_gauss_expnoise(data, fitfunc, param_init=[], nfixed=[]):
+	''' Fit 1D data with some function.
+	Return fit parameters.
+	
+	param_init: initial parameters (for SetParam)
+	nfixed: indexes of fixed parameters in param_init (for FixParam)
+	'''
+	
+	pass
+
+def plot(trdata, fitfunc=None, outfn=None):
+	'''
+	Plot data histograms in a window (or to a file if outfn is set).
+	If fit is set, fit data first and plot fit function.
+	
+	trdata: {str(Name)=>[data]}
+	fitfunc: func(x)
+	outfn: str
+	'''
+	if fitfunc: #try to fit data first
+	# Guess initial parameters
+		data_concat = numpy.concatenate(*trdata) #concatenate data for all triggers
+		fit_concat = fit(cumul_data, fifunc)
+	
+	
+	for tr in trdata:
+		if tr not in EXCLUDE_TRIG:
+			
 		
+	
+def hist(data, title, outfn=None, histopts={}):
+	import matplotlib as mpl
+	mpl.use('Agg')
+	import matplotlib.pyplot as plt
+	import numpy as np
+
+	if not outfn:
+		plt.switch_backend('WX')
+
+	arr = np.array(data)
+	
+	print 'arr'
+
+	mean = np.mean(arr)
+	std = np.std(arr)
+	min_ = np.percentile(arr, 1)
+	max_ = np.percentile(arr, 80)
+	range_ = (min_, max_)
+
+	print 'stat'
+	
+	plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0, label=title)
+	plt.title(title)
+	plt.legend()
+
+	print 'hist'	
+	plt.xlim(0.0, plt.xlim()[1]) #begin x from 0
+	plt.xlim( plt.xlim()[0], 2500.0) #set x max
+
+	if not outfn:
+		fig =plt.gcf()
+		fig.set_tight_layout(True)	
+		plt.show()
+	else:
+		plt.savefig(outfn)
+	
+	
+	print 'done'
+	
+	
+	
 def main():
 
 	args = parse_cmdline()
@@ -164,20 +200,13 @@ def main():
 		sys.stderr.write('NO DATA FOUND for selected channels!\n')
 		exit(0)
 	
-	
-	# Make the histograms
-	
 	for ch in data:
 		outfile = None
 		if args.output:
 			outfile = os.path.splitext(args.output)[0]+'_ch%d.png'%(ch,)
-
 		#~ print outfile
-	
-	
-	exit(0)
-	
 		
-			
+		plot(data[ch], outfn=outfile)
+		
 if __name__ == "__main__":
 	main()
