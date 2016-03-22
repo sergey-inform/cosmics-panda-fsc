@@ -10,6 +10,7 @@ The input file columns:
 import sys, os
 import argparse
 
+
 TS_COL_NUM   = 0	# timestamp (float)
 CHAN_COL_NUM = 1	# channel  (int)
 TRIG_COL_NUM = 2	# trigger (str)
@@ -84,6 +85,9 @@ def parse_infile(infile, chan=None):
 			sys.stderr.write("Wrong data in line %d: %s\n" % (lcount, str(e)) )
 			exit(1)
 			
+		if tr in EXCLUDE_TRIG:
+			continue
+		
 		if ch < 0:
 			sys.stderr.write("Wrong data in line %d, channel number < 0\n" % (lcount,) )
 			exit(1)
@@ -107,8 +111,6 @@ def parse_infile(infile, chan=None):
 	return data
 
 
-def gauss_expnoise(x,par):
-	return x*x
 
 def fit_gauss_expnoise(data, fitfunc, param_init=[], nfixed=[]):
 	''' Fit 1D data with some function.
@@ -120,7 +122,7 @@ def fit_gauss_expnoise(data, fitfunc, param_init=[], nfixed=[]):
 	
 	pass
 
-def plot(trdata, fitfunc=None, outfn=None):
+def plot_many(ndata, title, fitfunc=None, outfn=None):
 	'''
 	Plot data histograms in a window (or to a file if outfn is set).
 	If fit is set, fit data first and plot fit function.
@@ -129,19 +131,36 @@ def plot(trdata, fitfunc=None, outfn=None):
 	fitfunc: func(x)
 	outfn: str
 	'''
-	if fitfunc: #try to fit data first
-	# Guess initial parameters
-		data_concat = numpy.concatenate(*trdata) #concatenate data for all triggers
-		fit_concat = fit(cumul_data, fifunc)
+	
+	import matplotlib.pyplot as plt
+	
+	#~ if fitfunc: #try to fit data first
+	#~ # Guess initial parameters
+		#~ data_concat = numpy.concatenate(*trdata) #concatenate data for all triggers
+		#~ fit_concat = fit(cumul_data, fifunc)
 	
 	
-	for tr in trdata:
-		if tr not in EXCLUDE_TRIG:
-			
+	#~ for tr in trdata:
+		#~ if tr not in EXCLUDE_TRIG:
+	
+	fig = plt.figure()
+	
+	ntitles = ["%s %d"%(str(k), len(ndata[k])) for k in ndata.keys()]
+	nvals, bins, npatches = plt.hist(ndata.values(), bins=50, range=(0,2500), histtype='step', label=ntitles)
+	
+	plt.title(title)
+	plt.legend()
+	
+	if outfn:
+		#~ mpl.switch_backend('Agg')
+		plt.savefig(outfn)
+		return
+	
+	plt.show()
 		
 	
 def hist(data, title, outfn=None, histopts={}):
-	import matplotlib as mpl
+	
 	mpl.use('Agg')
 	import matplotlib.pyplot as plt
 	import numpy as np
@@ -182,7 +201,7 @@ def hist(data, title, outfn=None, histopts={}):
 	
 	
 def main():
-
+	
 	args = parse_cmdline()
 
 	# check DISPLAY variable.
@@ -192,6 +211,15 @@ def main():
 		args.batch = True
 		sys.stderr.write("No $DISPLAY. So running in batch mode.\n")
 	#~ print args
+
+	# We must choose pyplot backend before importing pyplot
+	import matplotlib as mpl
+	if args.output or args.batch:
+		mpl.use('agg') # output to file
+	else:
+		mpl.use('WXAgg') # output in window
+	import matplotlib.pyplot as plt
+	
 	
 	data = parse_infile(args.infile, chan=args.chan)
 	#~ print sorted(data.keys())
@@ -206,7 +234,8 @@ def main():
 			outfile = os.path.splitext(args.output)[0]+'_ch%d.png'%(ch,)
 		#~ print outfile
 		
-		plot(data[ch], outfn=outfile)
+		title = outfile if outfile else "channel %s" % str(ch)
+		plot_many(data[ch], title, outfn=outfile)
 		
 if __name__ == "__main__":
 	main()
