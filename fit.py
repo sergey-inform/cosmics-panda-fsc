@@ -16,6 +16,9 @@ CHAN_COL_NUM = 1	# channel  (int)
 TRIG_COL_NUM = 2	# trigger (str)
 VAL_COL_NUM  = 3	# value (float)
 
+RANGE = (0,2500)
+BINS = 100
+
 EXCLUDE_TRIG=['ALL', ]
 
 
@@ -132,73 +135,23 @@ def plot_many(ndata, title, fitfunc=None, outfn=None):
 	outfn: str
 	'''
 	
-	import matplotlib.pyplot as plt
-	
-	#~ if fitfunc: #try to fit data first
-	#~ # Guess initial parameters
-		#~ data_concat = numpy.concatenate(*trdata) #concatenate data for all triggers
-		#~ fit_concat = fit(cumul_data, fifunc)
-	
-	
-	#~ for tr in trdata:
-		#~ if tr not in EXCLUDE_TRIG:
+	import matplotlib.pyplot as plt #the backend had been choosen in main()
 	
 	fig = plt.figure()
 	
 	ntitles = ["%s %d"%(str(k), len(ndata[k])) for k in ndata.keys()]
-	nvals, bins, npatches = plt.hist(ndata.values(), bins=50, range=(0,2500), histtype='step', label=ntitles)
+	nvals, bins, npatches = plt.hist(ndata.values(), bins=BINS, range=RANGE, histtype='step', label=ntitles)
 	
 	plt.title(title)
 	plt.legend()
 	
 	if outfn:
-		#~ mpl.switch_backend('Agg')
 		plt.savefig(outfn)
 		return
 	
 	plt.show()
 		
-	
-def hist(data, title, outfn=None, histopts={}):
-	
-	mpl.use('Agg')
-	import matplotlib.pyplot as plt
-	import numpy as np
-
-	if not outfn:
-		plt.switch_backend('WX')
-
-	arr = np.array(data)
-	
-	print 'arr'
-
-	mean = np.mean(arr)
-	std = np.std(arr)
-	min_ = np.percentile(arr, 1)
-	max_ = np.percentile(arr, 80)
-	range_ = (min_, max_)
-
-	print 'stat'
-	
-	plt.hist(arr, 50, range=range_, histtype='step', facecolor='g', zorder=0, label=title)
-	plt.title(title)
-	plt.legend()
-
-	print 'hist'	
-	plt.xlim(0.0, plt.xlim()[1]) #begin x from 0
-	plt.xlim( plt.xlim()[0], 2500.0) #set x max
-
-	if not outfn:
-		fig =plt.gcf()
-		fig.set_tight_layout(True)	
-		plt.show()
-	else:
-		plt.savefig(outfn)
-	
-	
-	print 'done'
-	
-	
+		
 	
 def main():
 	
