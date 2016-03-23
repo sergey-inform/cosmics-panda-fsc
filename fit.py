@@ -9,7 +9,10 @@ The input file columns:
 
 import sys, os
 import argparse
-
+import operator
+from scipy.optimize import curve_fit
+from numpy.random import normal as gauss
+import numpy as np
 
 TS_COL_NUM   = 0	# timestamp (float)
 CHAN_COL_NUM = 1	# channel  (int)
@@ -17,7 +20,7 @@ TRIG_COL_NUM = 2	# trigger (str)
 VAL_COL_NUM  = 3	# value (float)
 
 RANGE = (0,2500)
-BINS = 100
+BINS = 50
 
 EXCLUDE_TRIG=['ALL', ]
 
@@ -114,16 +117,28 @@ def parse_infile(infile, chan=None):
 	return data
 
 
+def gauss_expnoise(x, A, mu, sigma, exp_const, exp_curv):
+	return A*np.exp(-(x-mu)**2/(2.*sigma**2)) + np.exp(exp_const + x * exp_curv)
 
-def fit_gauss_expnoise(data, fitfunc, param_init=[], nfixed=[]):
+def fit_many(ndata, bins, fitfunc):
 	''' Fit 1D data with some function.
 	Return fit parameters.
-	
-	param_init: initial parameters (for SetParam)
-	nfixed: indexes of fixed parameters in param_init (for FixParam)
 	'''
 	
-	pass
+	xdata = bins[:-1] #FIXME: set x'es to the middles of the bins
+	
+	# 1. Concat data
+	data_concat = map(operator.add, *ndata)
+
+	# 2. Fit concatenated data 
+	
+	p0 = [100, 1000, 100, 200, -0.001] 
+	lbounds = [10, 800, 10, 10, -0.000000001]
+	ubounds = [1000, 1200, 1000, 1000, -0.1]
+	popt, pcov = curve_fit(gauss_expnoise, xdata, data_concat, p0 = p0, bounds = (lbounds, ubounds))
+	print 'popt', popt
+	return popt, popt
+	
 
 def plot_many(ndata, title, fitfunc=None, outfn=None):
 	'''
@@ -131,7 +146,7 @@ def plot_many(ndata, title, fitfunc=None, outfn=None):
 	If fit is set, fit data first and plot fit function.
 	
 	trdata: {str(Name)=>[data]}
-	fitfunc: func(x)
+	#~ fitfunc: func(x)
 	outfn: str
 	'''
 	
@@ -141,6 +156,13 @@ def plot_many(ndata, title, fitfunc=None, outfn=None):
 	
 	ntitles = ["%s %d"%(str(k), len(ndata[k])) for k in ndata.keys()]
 	nvals, bins, npatches = plt.hist(ndata.values(), bins=BINS, range=RANGE, histtype='step', label=ntitles)
+	
+	nparams = fit_many(nvals, bins, gauss_expnoise)
+	
+	for n in range(0,len(nparams)):
+		print 'fit', ntitles[n], ': ', nparams[n]
+		yvals = [gauss_expnoise(_, *nparams[n]) for _ in bins]
+		plt.plot(bins, yvals, 'r-')
 	
 	plt.title(title)
 	plt.legend()
