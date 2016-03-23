@@ -129,12 +129,21 @@ def fit_many(ndata, bins, fitfunc):
 	
 	# 1. Concat data
 	data_concat = map(operator.add, *ndata)
+	
+	#clip 
+	CLIP = 6
+	xdata = xdata[CLIP:]
+	data_concat = data_concat[CLIP:]
+	
+	RCLIP = 12
+	xdata = xdata[:-RCLIP]
+	data_concat = data_concat[:-RCLIP]
 
 	# 2. Fit concatenated data 
 	
-	p0 = [100, 1000, 100, 200, -0.001] 
-	lbounds = [10, 800, 10, 10, -0.000000001]
-	ubounds = [1000, 1200, 1000, 1000, -0.1]
+	p0 = [100, 1000, 100, 5, -0.001] 
+	lbounds = [10, 800, 10, 3, -10]
+	ubounds = [10000, 1200, 1000, 9, -0.000001]
 	popt, pcov = curve_fit(gauss_expnoise, xdata, data_concat, p0 = p0, bounds = (lbounds, ubounds))
 	print 'popt', popt
 	return popt, popt
@@ -166,6 +175,8 @@ def plot_many(ndata, title, fitfunc=None, outfn=None):
 	
 	plt.title(title)
 	plt.legend()
+	
+	plt.plot(bins[:-1],map(operator.add, *nvals), 'r+')
 	
 	if outfn:
 		plt.savefig(outfn)
