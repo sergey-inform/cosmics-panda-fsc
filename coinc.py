@@ -26,7 +26,7 @@ conf = dict(
 		)
 
 
-event_counter = Counter()
+cluster_counter = Counter()
 record_stats = Counter()
 
 
@@ -36,22 +36,24 @@ class Coinc(object):
 	
 	def __init__(self, iostream, triggers, threshold = None):
 		self.iostream = iostream
-		
 		self.reader = self._reader(self.iostream, threshold = threshold)
 		
 	
 	
-	def _reader(self, iostream, threshold=None, jitter=1.0, ts_col=0, chan_col=1, val_col=2):
-		''' Generator, yields next coincidential events in iostream.
-			:threshold:	values less then `threshold` are ignored
-			:jitter: 	allowed difference between timestamps in one event
+	def _reader(self, iostream, threshold=None, jitter=1.0, ts_col=0, val_col=2):
+		''' Generator, splits iostream to clusters of records
+			with intervals between timestamps less than jitter. 
+			Yields one cluster at a time.
+		
+			:threshold:	if set, records with values less then `threshold` are ignored
+			:jitter: 	maximum diff of timestamps
 			:ts_col:	an index of column with a timestamp
-			:chan_col:	... channel nummber
-			:val_col:	... value 
+			:val_col:	an index of column with a value 
 		'''
 		lineno = 0
-		event = [] # to be yielded
-		first_line = (None, None) #ts_max, fields
+		cluster = [] # to be yielded
+		prev_ts = None
+		prev_fields = None
 		
 		for line in iostream:
 			lineno += 1
@@ -59,46 +61,39 @@ class Coinc(object):
 			fields = tuple(line.split())
 			try:
 				ts = float(fields[ts_col])
-				chan = fields[chan_col]
 				val = float(fields[val_col])
 		
 			except IndexError:
 				#TODO: do something clever
+				print_err('err line: %d' % (lineno, ))
+				raise
+			except ValueError as e:
+				print_err('err line: %d' % (lineno, ))
 				raise
 				
-			except ValueError as e:
-				print e
-				print('line: %d' % (lineno, ))
-				
-			if threshold and val < threshold: 
-				# ignore current line
+			if threshold is not None and val < threshold: 
 				record_stats['nthreshold'] += 1
-				continue
+				continue # just ignore current line
 			
-			if first_line[0] > ts:  # False for first_line[0] == None, since None is <= than any value
-			 	# first_line in coincidence with current
-			 	if not event: # start a new event
-					event.append( first_line[1])
-				event.append(fields)
+			if prev_ts >= ts - jitter:  # False for `prev_ts is None`, since `None` < any value
+			 	# records are in the same cluster
+			 	if not cluster: # start a new cluster
+					cluster.append( prev_fields)
+				cluster.append(fields)
 				continue
 
-			# first_line is not in coincidence with current
-			if first_line[0] > ts - jitter: # assume ts > jitter
-				record_stats['noverlap'] += 1
-			
-			first_line = (ts + 2 * jitter,  fields) # first_line = current
-			
-			
+			prev_ts = ts
+			prev_fields = fields
 
-			if not event:  # nothing to yield
+			if not cluster:  # nothing to yield
 				continue
 			else:
-				yield event
-				event_counter[len(event)] += 1
-				event = []
+				yield cluster
+				cluster_counter[len(cluster)] += 1
+				cluster = []
 				
 
-		yield event # the last coincidential event in iostream
+		yield cluster # the last coincidential cluster in iostream
 
 
 			
@@ -137,13 +132,13 @@ def main():
 	iostream = io.open(infile, 'rb')
 	trigger = None
 
-	coinc = Coinc(iostream, trigger, threshold = 100)
+	coinc = Coinc(iostream, trigger, threshold = 0)
 	
 	for a in coinc:
 		print(len(a))
 		
 	print_err(str(record_stats))
-	print_err(str(event_counter))
+	print_err(str(cluster_counter))
 	
 	
 if __name__ == "__main__":
