@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Find coincidential events in data stream (events with close timestamps).
+Find coincidential events in data stream (the lists of records with close timestamps).
 
 input stream: a sequence of records ordered by timestamp.
 	you can get it with `sort --numeric-sort --merge data1.txt data2.txt ...`
@@ -43,7 +43,7 @@ class Coinc(object):
 		'''
 		lineno = 0
 		event = [] # to be yielded
-		first_line = (None, None, None)
+		first_line = (None, None) #ts_max, fields
 		
 		for line in iostream:
 			lineno += 1
@@ -66,15 +66,15 @@ class Coinc(object):
 				print_err('line %d ignored: val %.2f\n' %(lineno, val) ) #TODO: verbose
 				continue
 			
-			if first_line[0] > ts - jitter:  # False for first_line[0] == None, since None is <= than any value
+			if first_line[0] > ts:  # False for first_line[0] == None, since None is <= than any value
 			 	# first_line in coincidence with current
 			 	if not event: # start a new event
-					event.append(first_line[2])
+					event.append( first_line[1])
 				event.append(fields)
 				continue
 
 			# first_line is not in coincidence with current
-			first_line = (ts, val, fields) # first_line = current
+			first_line = (ts + 2 * jitter,  fields) # first_line = current
 
 			if not event:  # nothing to yield
 				continue
@@ -82,8 +82,9 @@ class Coinc(object):
 				yield event
 				event = []
 
-
 		yield event # the last coincidential event in iostream
+
+
 			
 				
 	def next(self):
