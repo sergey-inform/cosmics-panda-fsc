@@ -15,23 +15,30 @@ import sys,os
 import argparse
 import io 
 
+from collections import Counter
+
 
 def print_err(*args, **kvargs):
 	sys.stderr.write(*args, **kvargs)
 	
 conf = dict(
 		prefix="coinc_",
-		
 		)
+
+
+event_counter = Counter()
+record_stats = Counter()
 
 
 class Coinc(object):
 	''' Read and parse iostream, yild lines with coincidential timestamps.
 	'''
 	
-	def __init__(self, iostream, triggers):
+	def __init__(self, iostream, triggers, threshold = None):
 		self.iostream = iostream
-		self.reader = self._reader(self.iostream, threshold = 0)
+		
+		self.reader = self._reader(self.iostream, threshold = threshold)
+		
 	
 	
 	def _reader(self, iostream, threshold=None, jitter=1.0, ts_col=0, val_col=2):
@@ -63,7 +70,7 @@ class Coinc(object):
 				
 			if threshold and val < threshold: 
 				# ignore current line
-				print_err('line %d ignored: val %.2f\n' %(lineno, val) ) #TODO: verbose
+				record_stats['nthreshold'] += 1
 				continue
 			
 			if first_line[0] > ts:  # False for first_line[0] == None, since None is <= than any value
@@ -80,7 +87,9 @@ class Coinc(object):
 				continue
 			else:
 				yield event
+				event_counter[len(event)] += 1
 				event = []
+				
 
 		yield event # the last coincidential event in iostream
 
@@ -121,10 +130,13 @@ def main():
 	iostream = io.open(infile, 'rb')
 	trigger = None
 
-	coinc = Coinc(iostream, trigger)
+	coinc = Coinc(iostream, trigger, threshold = 10)
 	
 	for a in coinc:
 		print(len(a))
+		
+	print_err(str(record_stats))
+	print_err(str(event_counter))
 	
 	
 if __name__ == "__main__":
