@@ -41,12 +41,13 @@ class Coinc(object):
 		
 	
 	
-	def _reader(self, iostream, threshold=None, jitter=1.0, ts_col=0, val_col=2):
+	def _reader(self, iostream, threshold=None, jitter=1.0, ts_col=0, chan_col=1, val_col=2):
 		''' Generator, yields next coincidential events in iostream.
 			:threshold:	values less then `threshold` are ignored
 			:jitter: 	allowed difference between timestamps in one event
 			:ts_col:	an index of column with a timestamp
-			:val_col:	an index of column with a value 
+			:chan_col:	... channel nummber
+			:val_col:	... value 
 		'''
 		lineno = 0
 		event = [] # to be yielded
@@ -58,6 +59,7 @@ class Coinc(object):
 			fields = tuple(line.split())
 			try:
 				ts = float(fields[ts_col])
+				chan = fields[chan_col]
 				val = float(fields[val_col])
 		
 			except IndexError:
@@ -81,7 +83,12 @@ class Coinc(object):
 				continue
 
 			# first_line is not in coincidence with current
+			if first_line[0] > ts - jitter: # assume ts > jitter
+				record_stats['noverlap'] += 1
+			
 			first_line = (ts + 2 * jitter,  fields) # first_line = current
+			
+			
 
 			if not event:  # nothing to yield
 				continue
@@ -130,7 +137,7 @@ def main():
 	iostream = io.open(infile, 'rb')
 	trigger = None
 
-	coinc = Coinc(iostream, trigger, threshold = 10)
+	coinc = Coinc(iostream, trigger, threshold = 100)
 	
 	for a in coinc:
 		print(len(a))
