@@ -102,18 +102,18 @@ class Coinc(object):
 			yield cluster # the last coincidential cluster in iostream
 
 
-	def _trigger(self, _reader, triggers, jitter=1.0, chan_col = 1):
-		""" Gets next cluster of records from _reader. 
-		Check each record if it satisfies some of the triggers.
-		Yield a list of tuples [(record_fields, triggers), ]. 
-		"""
-		if not triggers:
-			raise ValueError('No triggers to match')
-		
-		for cluster in self.reader:
-			for rec in cluster:
-				for trig in triggers:
-					trig.check(
+	#~ def _trigger(self, _reader, triggers, jitter=1.0, chan_col = 1):
+		#~ """ Gets next cluster of records from _reader. 
+		#~ Check each record if it satisfies some of the triggers.
+		#~ Yield a list of tuples [(record_fields, triggers), ]. 
+		#~ """
+		#~ if not triggers:
+			#~ raise ValueError('No triggers to match')
+		#~ 
+		#~ for cluster in self.reader:
+			#~ for rec in cluster:
+				#~ for trig in triggers:
+					#~ trig.check(
 					
 			
 			
@@ -128,32 +128,6 @@ class Coinc(object):
 	__next__ = next 	# reqiured for Python 3
 
 
-class Trigger():
-	def __init__(self, name, channels, func=None):
-		self.name = name
-		self.channels = set(channels)
-		if not func:
-			self.func = self.subset_check
-		else:
-			self.func = func #TODO: check callable
-		pass
-		#~ self.outfile
-	
-	def subset_check(self, items):
-		""" Check if all required channels are in `items`. """
-		if self.channels.issubset(set(channels)):
-			return True
-		return False
-
-
-
-#~ def trig_coinc( records_cluster,  ):
-	#~ """ Trigger function which looks for certan coincidence patterns.
-	#~ 
-	#~ 
-	#~ 
-	#~ """
-		
 def main():
 	
 	infile = sys.stdin.fileno()
