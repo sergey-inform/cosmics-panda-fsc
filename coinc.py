@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-'''
+"""
 Find coincidential events in data stream (the lists of records with close timestamps).
 
 input stream: a sequence of records ordered by timestamp.
@@ -10,7 +10,7 @@ output: records with coincidental timestamps (one file per trigger).
 
 Author: Sergey Ryzhikov (sergey-inform@ya.ru), 2016
 License: GPLv2
-'''
+"""
 import sys,os
 import argparse
 import io 
@@ -22,7 +22,7 @@ def print_err(*args, **kvargs):
 	sys.stderr.write(*args, **kvargs)
 	
 conf = dict(
-		prefix="coinc_",
+		prefix='coinc_',
 		)
 
 
@@ -31,8 +31,8 @@ record_stats = Counter()
 
 
 class Coinc(object):
-	''' Read and parse iostream, yild lines with coincidential timestamps.
-	'''
+	""" Read and parse iostream, yild lines with coincidential timestamps.
+	"""
 	
 	def __init__(self, iostream, triggers, threshold = None):
 		self.iostream = iostream
@@ -41,7 +41,7 @@ class Coinc(object):
 	
 	
 	def _reader(self, iostream, threshold=None, jitter=1.0, ts_col=0, val_col=2):
-		''' Generator, splits iostream to clusters of records
+		""" Generator, splits iostream to clusters of records
 			with intervals between timestamps less than jitter. 
 			Yields one cluster at a time.
 		
@@ -49,7 +49,7 @@ class Coinc(object):
 			:jitter: 	maximum diff of timestamps
 			:ts_col:	an index of column with a timestamp
 			:val_col:	an index of column with a value 
-		'''
+		"""
 		lineno = 0
 		cluster = [] # to be yielded
 		prev_ts = None
@@ -88,12 +88,12 @@ class Coinc(object):
 			if not cluster:  # nothing to yield
 				continue
 			else:
-				yield cluster
+				yield cluster 
 				cluster_counter[len(cluster)] += 1
 				cluster = []
 				
-
-		yield cluster # the last coincidential cluster in iostream
+		if cluster:
+			yield cluster # the last coincidential cluster in iostream
 
 
 			
@@ -119,7 +119,7 @@ class Trigger():
 		#~ self.outfile
 	
 	def subset_check(self, items):
-		''' Check if all required channels are in `items`. '''
+		""" Check if all required channels are in `items`. """
 		if self.channels.issubset(set(channels)):
 			return True
 		return False
