@@ -39,7 +39,7 @@ class Coinc(object):
 	def __init__(self, iostream, triggers, threshold = None):
 		self.iostream = iostream
 		self.reader = self._reader(self.iostream, threshold = threshold)
-		self.trigger = self._trigger(self.reader, None)
+		#~ self.trigger = self._trigger(self.reader, None)
 		
 	
 	
@@ -119,8 +119,8 @@ class Coinc(object):
 			
 				
 	def next(self):
-		#~ return next(self.reader)
-		return next(self.trigger)
+		return next(self.reader)
+		#~ return next(self.trigger)
 		
 	def __iter__(self): 	# make the object iterable
 		return self
