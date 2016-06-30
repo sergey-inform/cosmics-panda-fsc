@@ -36,10 +36,12 @@ class Coinc(object):
 	""" Read and parse iostream, yild lines with coincidential timestamps.
 	"""
 	
-	def __init__(self, iostream, triggers, threshold = None):
+	def __init__(self, iostream, trigger_func, trigger_data, threshold = None):
+		threshold = 10 #FIXME: move params to conf array with reasonable defaults
+		
 		self.iostream = iostream
 		self.reader = self._reader(self.iostream, threshold = threshold)
-		#~ self.trigger = self._trigger(self.reader, None)
+		self.trigger = self._trigger(self.reader, trigger_func, trigger_data)
 		
 	
 	
@@ -102,25 +104,24 @@ class Coinc(object):
 			yield cluster # the last coincidential cluster in iostream
 
 
-	#~ def _trigger(self, _reader, triggers, jitter=1.0, chan_col = 1):
-		#~ """ Gets next cluster of records from _reader. 
-		#~ Check each record if it satisfies some of the triggers.
-		#~ Yield a list of tuples [(record_fields, triggers), ]. 
-		#~ """
-		#~ if not triggers:
-			#~ raise ValueError('No triggers to match')
-		#~ 
-		#~ for cluster in self.reader:
-			#~ for rec in cluster:
-				#~ for trig in triggers:
-					#~ trig.check(
-					
+	def _trigger(self, _reader, trigger_func, trigger_data, ts_col=0, chan_col=1):
+		""" Generator, gets a next cluster of records from _reader. 
+		Get a list of fired triggers for each record.
+		Yield a list of tuples [(record_fields, triggers), ]. 
+		"""
+		
+		for cluster in self.reader:
+			records = []
+			for rec in cluster:
+				records.append( dict(ts = float(rec[ts_col]), chan=int(rec[chan_col])))
 			
+			triggers = trigger_func(records, trigger_data)
 			
-				
+			yield zip(cluster, triggers)
+			
 	def next(self):
-		return next(self.reader)
-		#~ return next(self.trigger)
+		#~ return next(self.reader)
+		return next(self.trigger)
 		
 	def __iter__(self): 	# make the object iterable
 		return self
@@ -128,14 +129,53 @@ class Coinc(object):
 	__next__ = next 	# reqiured for Python 3
 
 
+
+def triggfunc_coinc( data_list, trigger_data, jitter=1.0):
+	""" A simple trigger function, which finds coincidence 
+	in channels according to predefined patterns.
+	
+	:data_list:   a list of tuples (ts, chan)
+	:trigger_data:  dict (trig_name: [channels])
+	:jitter: 	permitted jitter of timestamps
+	
+	Return a list with the same length as data_list, 
+	[set(trigger_names), ...]
+	"""
+	ret = []
+	for rec in data_list:
+		trigs = set()
+		adj_records = [r for r in data_list if abs(r['ts'] - rec['ts']) < jitter]
+		adj_chans = set([rec['chan'] for rec in adj_records])
+	
+		for trig_name, trig_chans in trigger_data.iteritems():
+			if set(trig_chans).issubset(adj_chans):
+				trigs.add(trig_name)
+			
+		ret.append(trigs)
+	return ret
+			
+	
+	
+	
+	return [None] * len(data_list)
+	
+
+
 def main():
 	
 	infile = sys.stdin.fileno()
 	
 	iostream = io.open(infile, 'rb')
-	trigger = None
+	
+	trigger_func = triggfunc_coinc
+	trigger_data = dict(
+			A = (0,1),
+			B1 = (0,8),
+			B2 = (1,8),
+			C = (0,1,8),
+			) 
 
-	coinc = Coinc(iostream, trigger, threshold = 0)
+	coinc = Coinc(iostream, trigger_func, trigger_data)
 	
 	for a in coinc:
 		print(a)
