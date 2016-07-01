@@ -17,6 +17,7 @@ import argparse
 import io 
 
 from collections import Counter
+from collections import namedtuple
 import logging
 
 
@@ -24,11 +25,16 @@ def print_err(format_str, *args, **kvargs):
 	sys.stderr.write(format_str + '\n', *args, **kvargs)
 	
 conf = dict(
-		prefix='coinc_',
+		prefix='out/coinc_',
 		)
 
-cluster_sz_counter = Counter() # cluster width (last_ts - first_ts)
+Record = namedtuple('Record', 'ts, chan, val, raw')
 
+#~ class Record:
+	#~ def __init__(self, ts, chan, val):
+		#~ self.ts = ts
+		#~ self.chan = chan
+		#~ self.val = val
 
 class Coinc(object):
 	""" Read and parse sorted iostream, 
@@ -42,12 +48,13 @@ class Coinc(object):
 		self.iostream = iostream
 		self.reader = self._reader(self.iostream, **params)
 		
-	def _reader(self, iostream, threshold = None, jitter=1.0, ts_col=0, val_col=2 ):
+	def _reader(self, iostream, threshold = None, jitter=1.0, ts_col=0, chan_col=1, val_col=2 ):
 		""" 
 		:threshold: 	- if set, records with values less
 				than `threshold` are ignored;
 		:jitter: 	- maximum diff of timestamps;
 		:ts_col:	- an index of column with a timestamp;
+		:chan_col:	- 
 		:val_col:	- an index of column with a value.
 		
 		Yields one cluster at a time.
@@ -65,10 +72,13 @@ class Coinc(object):
 		for line in iostream:
 			lineno += 1
 			
-			fields = tuple(line.split())
+			fields = line.split()
 			try:
 				ts = float( fields[ts_col] )
+				chan = fields[chan_col]
 				val = float( fields[val_col] )
+				
+				record = Record( ts, chan, val, line)
 		
 			except IndexError as e:
 				logging.error('%s , iostream line: %d' % (e, lineno) )
@@ -81,15 +91,14 @@ class Coinc(object):
 			if ts < prev_ts:
 				raise ValueError('input is not sorted, iostream line: %d' % lineno,)
 			
-			if threshold is not None:
-				if val < threshold: 
-					counts['nthreshold'] += 1
-					continue # just ignore current line
+			if val < threshold:	# always false if threshold is None
+				counts['nthreshold'] += 1
+				continue # just ignore current line
 
-			if ts - jitter >= prev_ts:  # True for `prev_ts is None`, since `None` < any value
+			if ts - jitter >= prev_ts:  # true if prev_ts is None, since None is < than any value
 			 	# not in the same cluster
 				prev_ts = ts
-				prev_fields = fields
+				prev_rec = record
 
 				if cluster:
 					stats[len(cluster)] += 1
@@ -98,11 +107,11 @@ class Coinc(object):
 			else:
 				# same cluster
 				if not cluster: # start a new one
-					cluster.append( prev_fields)
-				cluster.append(fields)
+					cluster.append( prev_rec)
+				cluster.append(record)
 				
 				prev_ts = ts
-				prev_fields = fields
+				prev_rec = record
 			
 		if cluster:
 			yield cluster # the last coincidential cluster in iostream
@@ -118,67 +127,67 @@ class Coinc(object):
 
 class CombinationsTrigger(object):
 	
-	def _trigger(self, _reader, trigger_func, trigger_data, ts_col=0, chan_col=1):
-		""" Generator, gets a next cluster of records from _reader. 
-		Get a list of fired triggers for each record.
-		Yield a list of tuples [(record_fields, triggers), ]. 
+	def __init__(self, _conf):
+		# TODO: Check _conf
+		self.conf = _conf
+		pass
+	
+	def check(self, rec_list, jitter=1.0):
 		"""
-		for cluster in self.reader:
-			records = [ dict(
-					ts = float(rec[ts_col]),
-					chan = int(rec[chan_col])
-					) for rec in cluster ]
-			triggers = trigger_func(records, trigger_data)
-			yield zip(cluster, triggers)
-
-
-
-def triggfunc_coinc( records, trigger_data, jitter=1.0):
-	""" A simple trigger function, which finds coincidence 
-	in channels according to predefined patterns.
+		records
+		"""
+		ret = [set()] * len(rec_list)
 	
-	:records:   a list of tuples (ts, chan)
-	:trigger_data:  dict (trig_name: [channels])
-	:jitter: 	permitted jitter of timestamps
-	
-	Return a list with the same length as data_list, 
-	[set(trigger_names), ...]
-	"""
-	ret = []
-	
-	for rec in records:
-		trigs = set()
+		for idx, rec in enumerate(rec_list):
+			adj_records = [r for r in rec_list if abs(r.ts - rec.ts) < jitter]
+			adj_chans = set([r.chan for r in adj_records])
 		
-		adj_records = [r for r in records if abs(r['ts'] - rec['ts']) < jitter]
-		adj_chans = set([r['chan'] for r in adj_records])
-	
-		for trig_name, trig_chans in trigger_data.iteritems():
-			if set(trig_chans).issubset(adj_chans):
-				trigs.add(trig_name)
-			
-		ret.append(trigs)
-	return ret
-	
-
+			for trig_name, trig_chans in self.conf.iteritems():
+				if set(trig_chans).issubset(adj_chans):
+					ret[idx].add(trig_name)
+		return ret
+		
 def main():
 	
 	infile = sys.stdin.fileno()
 	
 	iostream = io.open(infile, 'rb')
 	
-	trigger_func = triggfunc_coinc
-	trigger_data = dict(
-			A = (0,1),
-			B1 = (0,8),
-			B2 = (1,8),
-			C = (0,1,8),
+	trigger_conf = dict(
+			A = ('0','1'),
+			B1 = ('0','8'),
+			B2 = ('1','8'),
+			C = ('0','1','8'),
 			) 
 
-	coinc = Coinc(iostream, threshold = 10)
+	outstreams = {}
 	
-	for a in coinc:
-		#~ print(a)
-		print(len(a))
+	#create out dir
+	folder = os.path.dirname(conf['prefix'])
+	if not os.path.exists(folder):
+	    os.makedirs(folder)
+
+	for trig_name in trigger_conf.keys():
+		fn = conf['prefix'] + trig_name + '.txt'
+		#TODO: check file not exists
+		outstreams[trig_name] = io.open(fn, 'wb')
+		
+	print_err(str(outstreams))
+		
+	
+	coinc = Coinc(iostream, threshold = 10)
+	trig = CombinationsTrigger(trigger_conf)
+	
+	
+	for cluster in coinc:
+		triggers = trig.check(cluster)
+
+		print(len(cluster))
+		
+		for idx, trigs in enumerate(triggers):
+			for tr in trigs:
+				outstreams[tr].write(cluster[idx].raw)
+
 		
 	print_err(str(coinc.counts))
 	print_err(str(coinc.stats))
