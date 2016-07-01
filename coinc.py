@@ -103,20 +103,17 @@ class Coinc(object):
 		if cluster:
 			yield cluster # the last coincidential cluster in iostream
 
-
 	def _trigger(self, _reader, trigger_func, trigger_data, ts_col=0, chan_col=1):
 		""" Generator, gets a next cluster of records from _reader. 
 		Get a list of fired triggers for each record.
 		Yield a list of tuples [(record_fields, triggers), ]. 
 		"""
-		
 		for cluster in self.reader:
-			records = []
-			for rec in cluster:
-				records.append( dict(ts = float(rec[ts_col]), chan=int(rec[chan_col])))
-			
+			records = [ dict(
+					ts = float(rec[ts_col]),
+					chan = int(rec[chan_col])
+					) for rec in cluster ]
 			triggers = trigger_func(records, trigger_data)
-			
 			yield zip(cluster, triggers)
 			
 	def next(self):
@@ -130,11 +127,11 @@ class Coinc(object):
 
 
 
-def triggfunc_coinc( data_list, trigger_data, jitter=1.0):
+def triggfunc_coinc( records, trigger_data, jitter=1.0):
 	""" A simple trigger function, which finds coincidence 
 	in channels according to predefined patterns.
 	
-	:data_list:   a list of tuples (ts, chan)
+	:records:   a list of tuples (ts, chan)
 	:trigger_data:  dict (trig_name: [channels])
 	:jitter: 	permitted jitter of timestamps
 	
@@ -142,10 +139,12 @@ def triggfunc_coinc( data_list, trigger_data, jitter=1.0):
 	[set(trigger_names), ...]
 	"""
 	ret = []
-	for rec in data_list:
+	
+	for rec in records:
 		trigs = set()
-		adj_records = [r for r in data_list if abs(r['ts'] - rec['ts']) < jitter]
-		adj_chans = set([rec['chan'] for rec in adj_records])
+		
+		adj_records = [r for r in records if abs(r['ts'] - rec['ts']) < jitter]
+		adj_chans = set([r['chan'] for r in adj_records])
 	
 		for trig_name, trig_chans in trigger_data.iteritems():
 			if set(trig_chans).issubset(adj_chans):
@@ -153,13 +152,7 @@ def triggfunc_coinc( data_list, trigger_data, jitter=1.0):
 			
 		ret.append(trigs)
 	return ret
-			
 	
-	
-	
-	return [None] * len(data_list)
-	
-
 
 def main():
 	
@@ -178,7 +171,8 @@ def main():
 	coinc = Coinc(iostream, trigger_func, trigger_data)
 	
 	for a in coinc:
-		print(a)
+		#~ print(a)
+		print(len(a))
 		
 	print_err(str(record_stats))
 	print_err(str(cluster_counter))
