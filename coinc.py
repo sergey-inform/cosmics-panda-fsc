@@ -23,18 +23,15 @@ import logging
 
 def print_err(format_str, *args, **kvargs):
 	sys.stderr.write(format_str + '\n', *args, **kvargs)
+
 	
 conf = dict(
 		prefix='out/coinc_',
 		)
 
+
 Record = namedtuple('Record', 'ts, chan, val, raw')
 
-#~ class Record:
-	#~ def __init__(self, ts, chan, val):
-		#~ self.ts = ts
-		#~ self.chan = chan
-		#~ self.val = val
 
 class Coinc(object):
 	""" Read and parse sorted iostream, 
@@ -129,15 +126,18 @@ class CombinationsTrigger(object):
 	
 	def __init__(self, _conf):
 		# TODO: Check _conf
+		# TODO: map trig names to str()
 		self.conf = _conf
 		pass
 	
 	def check(self, rec_list, jitter=1.0):
 		"""
-		records
+		Get all fired triggers for each record.
+		Return a list of sets of triggers.
+		
 		"""
 		ret = [set()] * len(rec_list)
-	
+		
 		for idx, rec in enumerate(rec_list):
 			adj_records = [r for r in rec_list if abs(r.ts - rec.ts) < jitter]
 			adj_chans = set([r.chan for r in adj_records])
@@ -147,11 +147,12 @@ class CombinationsTrigger(object):
 					ret[idx].add(trig_name)
 		return ret
 		
+		
 def main():
 	
 	infile = sys.stdin.fileno()
 	
-	iostream = io.open(infile, 'rb')
+	iostream = io.open(infile, 'rb', buffering=1024*1024)
 	
 	trigger_conf = dict(
 			A = ('0','1'),
@@ -183,6 +184,7 @@ def main():
 		triggers = trig.check(cluster)
 
 		print(len(cluster))
+		#~ print(triggers)
 		
 		for idx, trigs in enumerate(triggers):
 			for tr in trigs:
