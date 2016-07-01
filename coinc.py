@@ -17,39 +17,33 @@ import argparse
 import io 
 
 from collections import Counter
+import logging
 
 
-def print_err(*args, **kvargs):
-	sys.stderr.write(*args, **kvargs)
+def print_err(format_str, *args, **kvargs):
+	sys.stderr.write(format_str + '\n', *args, **kvargs)
 	
 conf = dict(
 		prefix='coinc_',
 		)
 
-
-cluster_counter = Counter() # events per cluster
 cluster_sz_counter = Counter() # cluster width (last_ts - first_ts)
-record_stats = Counter()
 
 
 class Coinc(object):
-	""" Read and parse iostream, yild lines with coincidential timestamps.
+	""" Read and parse sorted iostream, 
+	yield clusters of lines with coincidential timestamps.
 	"""
+	stats = Counter() # events per cluster
+	counts = Counter() # various counters
 	
-	def __init__(self, iostream, trigger_func, trigger_data, threshold = None):
-		threshold = 10 #FIXME: move params to conf array with reasonable defaults
+	def __init__(self, iostream, **params):
 		
 		self.iostream = iostream
-		self.reader = self._reader(self.iostream, threshold = threshold)
-		self.trigger = self._trigger(self.reader, trigger_func, trigger_data)
+		self.reader = self._reader(self.iostream, **params)
 		
-	
-	
-	def _reader(self, iostream, threshold=None, jitter=1.0, ts_col=0, val_col=2):
-		""" Generator, splits iostream into clusters of records,
-		intervals between timestamps of adjaсent records within
-		cluster are less than jitter. 
-		
+	def _reader(self, iostream, threshold = None, jitter=1.0, ts_col=0, val_col=2 ):
+		""" 
 		:threshold: 	- if set, records with values less
 				than `threshold` are ignored;
 		:jitter: 	- maximum diff of timestamps;
@@ -58,8 +52,13 @@ class Coinc(object):
 		
 		Yields one cluster at a time.
 		"""
+		
+		counts = self.counts
+		stats = self.stats
+		
 		lineno = 0
 		cluster = [] # to be yielded
+		
 		prev_ts = None
 		prev_fields = None
 		
@@ -68,41 +67,57 @@ class Coinc(object):
 			
 			fields = tuple(line.split())
 			try:
-				ts = float(fields[ts_col])
-				val = float(fields[val_col])
+				ts = float( fields[ts_col] )
+				val = float( fields[val_col] )
 		
-			except IndexError:
-				#TODO: do something clever
-				print_err('err line: %d' % (lineno, ))
+			except IndexError as e:
+				logging.error('%s , iostream line: %d' % (e, lineno) )
 				raise
-			except ValueError as e:
-				print_err('err line: %d' % (lineno, ))
-				raise
-				
-			if threshold is not None and val < threshold: 
-				record_stats['nthreshold'] += 1
-				continue # just ignore current line
 			
-			if prev_ts >= ts - jitter:  # False for `prev_ts is None`, since `None` < any value
-			 	# records are in the same cluster
-			 	if not cluster: # start a new cluster
+			except ValueError as e:
+				logging.error('%s , iostream line: %d' % (e, lineno) )
+				raise
+			
+			if ts < prev_ts:
+				raise ValueError('input is not sorted, iostream line: %d' % lineno,)
+			
+			if threshold is not None:
+				if val < threshold: 
+					counts['nthreshold'] += 1
+					continue # just ignore current line
+
+			if ts - jitter >= prev_ts:  # True for `prev_ts is None`, since `None` < any value
+			 	# not in the same cluster
+				prev_ts = ts
+				prev_fields = fields
+
+				if cluster:
+					stats[len(cluster)] += 1
+					yield cluster 
+					cluster = []
+			else:
+				# same cluster
+				if not cluster: # start a new one
 					cluster.append( prev_fields)
 				cluster.append(fields)
-				continue
-
-			prev_ts = ts
-			prev_fields = fields
-
-			if not cluster:  # nothing to yield
-				continue
-			else:
-				yield cluster 
-				cluster_counter[len(cluster)] += 1
-				cluster = []
 				
+				prev_ts = ts
+				prev_fields = fields
+			
 		if cluster:
 			yield cluster # the last coincidential cluster in iostream
 
+	def next(self):
+		return next(self.reader)
+		
+	def __iter__(self): 	# make the object iterable
+		return self
+
+	__next__ = next 	# reqiured for Python 3
+
+
+class CombinationsTrigger(object):
+	
 	def _trigger(self, _reader, trigger_func, trigger_data, ts_col=0, chan_col=1):
 		""" Generator, gets a next cluster of records from _reader. 
 		Get a list of fired triggers for each record.
@@ -115,15 +130,6 @@ class Coinc(object):
 					) for rec in cluster ]
 			triggers = trigger_func(records, trigger_data)
 			yield zip(cluster, triggers)
-			
-	def next(self):
-		#~ return next(self.reader)
-		return next(self.trigger)
-		
-	def __iter__(self): 	# make the object iterable
-		return self
-	
-	__next__ = next 	# reqiured for Python 3
 
 
 
@@ -168,14 +174,14 @@ def main():
 			C = (0,1,8),
 			) 
 
-	coinc = Coinc(iostream, trigger_func, trigger_data)
+	coinc = Coinc(iostream, threshold = 10)
 	
 	for a in coinc:
 		#~ print(a)
 		print(len(a))
 		
-	print_err(str(record_stats))
-	print_err(str(cluster_counter))
+	print_err(str(coinc.counts))
+	print_err(str(coinc.stats))
 	
 	
 if __name__ == "__main__":
