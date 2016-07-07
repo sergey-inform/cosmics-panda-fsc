@@ -263,7 +263,7 @@ def main():
 	#create out dir
 	prefix = args.output
 	folder = os.path.dirname(args.output)
-	if not os.path.exists(folder):
+	if folder and not os.path.exists(folder):
 	    os.makedirs(folder)
 	
 	if debug:
