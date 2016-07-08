@@ -203,7 +203,7 @@ def main():
 			metavar='PATH',
 			help="a path for output, one file per trigger. ('out/coinc_' by default)")
 		
-	parser.add_argument('-c', '--chan-pattern', type=str, action='append', default=[],
+	parser.add_argument('-t', '--chan-pattern', type=str, action='append', default=[],
 			metavar='PATTERN',
 			help="a rule for combinations trigger (when channels in cluster match specified pattern)" '\n'
 			"Pattern format: <name>:<ch1>,<ch2>,...<chN>" '\n'
@@ -267,7 +267,7 @@ def main():
 	    os.makedirs(folder)
 	
 	if debug:
-		print_err('infile: %s' % (iostream.name if iostream.fileno() != 0 else '<stdin>'))
+		print_err('infile: %s' % (iostream.name if iostream.fileno() != 0 else '<stdin>')) #TODO: ?
 		
 	if iostream.isatty():
 		print_err('You are trying to read data from a terminal!')
