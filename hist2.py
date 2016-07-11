@@ -33,10 +33,10 @@ def sigint_handler(signal, frame):
         print('You pressed Ctrl+C!')
         sys.exit(0)
 
-def parse_input(_file, channames=None, ):
+def parse_input(_file, chans=None ):
 
 	lineno = 0
-	ret = {} # {chan: np.array, ...}
+	ret = {}  # {chan: np.array, ...}
 	for line in _file:
 		lineno += 1
 
@@ -53,6 +53,9 @@ def parse_input(_file, channames=None, ):
 			logging.error('%s , line: %d' % (e, lineno) )
 			raise
 		
+		if chans and chan not in chans:
+			continue  # skip non-listed channels
+		
 		try:
 			ret[chan].append(val)
 
@@ -63,7 +66,7 @@ def parse_input(_file, channames=None, ):
 	return ret
 
 
-def plot(data, outfile, channels = [], bins=50, histopts={}):
+def plot(data, outfile, bins=50, histopts={}):
 	import matplotlib.pyplot as plt
 
 	defaults = dict(
@@ -77,9 +80,6 @@ def plot(data, outfile, channels = [], bins=50, histopts={}):
 	histopts.update([(k,v) for k,v in defaults.iteritems() if k not in histopts])
 	
 	for chan, chandata in sorted(data.items()):
-		if channels and str(chan) not in channels:
-			continue
-		
 		
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
@@ -140,7 +140,7 @@ def main():
 			
 	parser.add_argument('-c','--chan', type=str, 
 			metavar = 'LIST',
-			help='a list of channel names')
+			help='a list of channel names, separated by commas')
 	
 	parser.add_argument('--chan-col', type=str, 
 			metavar = 'N',
@@ -172,11 +172,13 @@ def main():
 	data={} # { channame: {filename: [values], ...}, ... }
 	
 	# Parse the data
-	#~ channames = args.chan.split(',') if args.chan is not None else None
+	chans = args.chan.split(',') if args.chan is not None else None
+	
+	print 'chans', chans
 	
 	for infile in args.infiles:
 		filename = infile.name
-		parsed = parse_input(infile, channames=None) 
+		parsed = parse_input(infile, chans=chans) 
 
 		for channame, values in parsed.items():
 			if channame not in data:
@@ -185,18 +187,11 @@ def main():
 			data[channame][filename] = values
 		
 		
-	# Print data counts
-	#~ for chan, zz in data.iteritems():
-		#~ for name, values in zz.iteritems():
-			#~ print chan, name, len(values)
-	
-	
 	opts = dict(
 		normed = args.normalize,
 		)
 	
-	# Build the plots
-	plot(data, bins = args.bins, channels = args.chan, outfile = args.output, histopts=opts )
+	plot(data, bins = args.bins, outfile = args.output, histopts=opts )
 	
 	#~ print('Press Ctrl+C')
 	#~ signal.pause()
