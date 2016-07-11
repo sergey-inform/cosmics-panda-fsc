@@ -15,8 +15,11 @@ Author: Sergey Ryzhikov (sergey-inform@ya.ru), 2016
 License: GPLv2
 """
 
-import sys, os
+import sys
+import os
+import signal
 import argparse
+from itertools import cycle # cycle facecolors
 
 CHAN_COL_IDX = 1
 DATA_COL_IDX = 2
@@ -25,6 +28,10 @@ DATA_COL_IDX = 2
 def print_err(format_str, *args, **kvargs):
 	sys.stderr.write(str(format_str) + '\n', *args, **kvargs)
 
+
+def sigint_handler(signal, frame):
+        print('You pressed Ctrl+C!')
+        sys.exit(0)
 
 def parse_input(_file, channames=None, ):
 
@@ -56,33 +63,62 @@ def parse_input(_file, channames=None, ):
 	return ret
 
 
-def plot(data, outfile, chan = None, bins=50, histopts={}):
+def plot(data, outfile, channels = [], bins=50, histopts={}):
 	import matplotlib.pyplot as plt
-	
+
 	defaults = dict(
 		alpha=0.75,
 		range=(0,4000),
-		facecolor='green',
+		normed=True, # replace with density=True in future matplotlib versions 
+		histtype='step',
 		)
 	
 	# set default values for missing options:
 	histopts.update([(k,v) for k,v in defaults.iteritems() if k not in histopts])
 	
-	for chan, chandata in data.iteritems():
-		for trigname, trigdata in chandata.iteritems():
+	for chan, chandata in sorted(data.items()):
+		if channels and str(chan) not in channels:
+			continue
+		
+		
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.grid(True)
+		
+		colors=iter(['red','darkgreen','blue','purple','navy','brown','grey'])
+		
+		histdata = []
+		
+		for trigname, trigdata in sorted(chandata.items()):
 			#http://stackoverflow.com/questions/5328556/histogram-matplotlib
-			fig = plt.figure()
-			ax = fig.add_subplot(111)
-			n, bins, patches = ax.hist(trigdata, bins, **histopts )
-
-			ax.grid(True)
-
-			plt.show()
-
+			
+			label = trigname 
+			if 'normed' in histopts and histopts['normed']:
+			#if 'density' in histopts and histopts['density']:  # use in future matplotlib versions
+				label += r' (%d)' % len(trigdata)  # add a number of events
+			
+			n, bins, patches = ax.hist(
+				trigdata,
+				bins,
+				color=next(colors),
+				label=label,
+				**histopts
+				)
+			
+			histdata.append( (n,bins,patches) )
+		
+		plt.title('chan: %s' % str(chan))
+		legend = plt.legend()
+		
+		plt.show()
+	
+	
 
 def main():
 	global CHAN_COL_IDX
 	global DATA_COL_IDX
+	
+	signal.signal(signal.SIGINT, sigint_handler)
 	
 	parser = argparse.ArgumentParser(description=__doc__,
 			formatter_class=argparse.RawTextHelpFormatter)
@@ -95,6 +131,9 @@ def main():
 	parser.add_argument('-r', '--range', type=str,
 			metavar='N:M',
 			help='a range of histogram values')
+	
+	parser.add_argument('--normalize', action='store_true',
+			help="normalize histograms (show density)")
 	
 	parser.add_argument('-b', '--bins', type=int, default=100,
 			help='a number of bins in the histogram')
@@ -119,12 +158,14 @@ def main():
 			help="be verbose")
 	
 	args = parser.parse_args()
-	print_err(args)
+	#~ print_err(args)
 	
 	if args.data_col:
 		DATA_COL_IDX = args.data_col
 	if args.chan_col:
 		CHAN_COL_IDX = args.chan_col
+		
+	
 	
 	#TODO: make channels optional
 	
@@ -137,7 +178,7 @@ def main():
 		filename = infile.name
 		parsed = parse_input(infile, channames=None) 
 
-		for channame, values in parsed.iteritems():
+		for channame, values in parsed.items():
 			if channame not in data:
 				data[channame] = {}
 				
@@ -150,10 +191,15 @@ def main():
 			#~ print chan, name, len(values)
 	
 	
+	opts = dict(
+		normed = args.normalize,
+		)
+	
 	# Build the plots
-	plot(data, bins = args.bins, chan = args.chan, outfile = args.output )
+	plot(data, bins = args.bins, channels = args.chan, outfile = args.output, histopts=opts )
 	
-	
+	#~ print('Press Ctrl+C')
+	#~ signal.pause()
 	
 if __name__ == "__main__":
     main()
