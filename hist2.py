@@ -27,17 +27,17 @@ def print_err(format_str, *args, **kvargs):
 
 
 def parse_input(_file, channames=None, ):
-	
+
 	lineno = 0
 	ret = {} # {chan: np.array, ...}
 	for line in _file:
 		lineno += 1
-		
+
 		fields = line.split()
 		try:
 			chan = fields[CHAN_COL_IDX]
 			val = float( fields[DATA_COL_IDX] )
-			
+		
 		except IndexError as e:
 			logging.error('%s , line: %d' % (e, lineno) )
 			raise
@@ -56,21 +56,29 @@ def parse_input(_file, channames=None, ):
 	return ret
 
 
-def plot(data, outfile):
+def plot(data, outfile, chan = None, bins=50, histopts={}):
 	import matplotlib.pyplot as plt
+	
+	defaults = dict(
+		alpha=0.75,
+		range=(0,4000),
+		facecolor='green',
+		)
+	
+	# set default values for missing options:
+	histopts.update([(k,v) for k,v in defaults.iteritems() if k not in histopts])
 	
 	for chan, chandata in data.iteritems():
 		for trigname, trigdata in chandata.iteritems():
 			#http://stackoverflow.com/questions/5328556/histogram-matplotlib
 			fig = plt.figure()
 			ax = fig.add_subplot(111)
-			n, bins, patches = ax.hist(trigdata, 50, facecolor='green', alpha=0.75, range=(0,4000) )
-	
+			n, bins, patches = ax.hist(trigdata, bins, **histopts )
+
 			ax.grid(True)
 
 			plt.show()
-	
-	
+
 
 def main():
 	global CHAN_COL_IDX
@@ -105,13 +113,18 @@ def main():
 
 	parser.add_argument('-o','--output', type=argparse.FileType('w'), 
 			metavar='FILE',
-			help="put histogram in a file")
+			help="put plot in a file")
 		
 	parser.add_argument('--debug', action='store_true',
 			help="be verbose")
 	
 	args = parser.parse_args()
 	print_err(args)
+	
+	if args.data_col:
+		DATA_COL_IDX = args.data_col
+	if args.chan_col:
+		CHAN_COL_IDX = args.chan_col
 	
 	#TODO: make channels optional
 	
@@ -132,14 +145,13 @@ def main():
 		
 		
 	# Print data counts
-	for chan, zz in data.iteritems():
-		for name, values in zz.iteritems():
-			print chan, name, len(values)
-	
+	#~ for chan, zz in data.iteritems():
+		#~ for name, values in zz.iteritems():
+			#~ print chan, name, len(values)
 	
 	
 	# Build the plots
-	plot(data, outfile = args.output )
+	plot(data, bins = args.bins, chan = args.chan, outfile = args.output )
 	
 	
 	
