@@ -33,6 +33,9 @@
         
   2. Поиск совпадающих событий:
     ```Shell
+    # Check that timestamps in files are consequent:
+    for file in `ls data*.txt`; do  echo $file; sort -cn $file ; done
+    
     # Join several data files:
     sort --numeric-sort --merge data1.txt data2.txt ... > sorted.txt
     
