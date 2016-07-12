@@ -36,6 +36,9 @@
     # Check that timestamps in files are consequent:
     for file in `ls data*.txt`; do  echo $file; sort -cn $file ; done
     
+    # Sometimes first timestamps in files are not conequent. Remove first 10 lines of each file with:
+    for file in `ls data_*.txt`; do  echo $file; sed -i -e 1,10d $file ;done
+    
     # Join several data files:
     sort --numeric-sort --merge data1.txt data2.txt ... > sorted.txt
     
