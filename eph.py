@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-""" Count events per hour for each channel.
-	input columns: timestamp chan trig ...
-	output columns: "hour chan trig eph"
+""" Count events per hour for each channel in a sorted list of records.
+	input columns: <timestamp> <chan> ...
+	output columns: "<hour> <eph> ... <ephN>"
 """
 
 import sys, os
 import argparse
 
-HZ = 250*1000*1000 
+HZ = 250 * 1000 * 1000 # timestamp = HZ * seconds
 
 def main():
 	parser = argparse.ArgumentParser(description=__doc__,
@@ -22,39 +22,36 @@ def main():
 	
 	args = parser.parse_args()
 	
-	count_chan = {} #count events for only one channel for each trigger
-	count = {}
-	hr = 0
 	ts_increment = HZ * 3600
-	next_ts = ts_increment # to make thins faster we use one ts for all channels
-	triggers = None
+	next_ts = ts_increment
+	count = {}  # {chan: count,}
+	hr = 0
+	channels = None
 	
 	for line in args.infile:
-		ts, chan, trig, rest = line[:-1].split('\t', 3) #stip '\n' without making a copy of the strin
+		ts, chan, rest = line[:-1].split('\t', 2) #stip '\n' without making a copy of the strin
 		ts = float(ts)
 		
-		if trig not in count_chan:
-			count_chan[trig] = chan
-			count[trig] = 0
+		if chan not in count:
+			count[chan] = 0
 		
-		if chan == count_chan[trig]:
-			count[trig] += 1
+		count[chan] += 1
 		
+
 		if ts > next_ts:
 			hr +=1
 			next_ts = ts + ts_increment
-			#print the data
 			
-			if not triggers:
-				triggers = sorted(count)
+			if not channels:
+				channels = sorted(count)
 				#print header
-				print("\t".join(["hr"] + triggers) )
+				print("\t".join(["hr"] + channels) )
 			
-			values = [count[t] for t in triggers]
+			#print the data
+			values = [count[c] for c in channels]
 			print('%d\t%s' % (hr, '\t'.join( map(str, values) ) ) ) 
 			
 			count = {}
-			count_chan = {}
 		
 	
 if __name__ == "__main__":
