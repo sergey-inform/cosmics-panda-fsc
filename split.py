@@ -49,7 +49,6 @@ def main():
 		if ts < ts_prev:  # ts wrap
 			
 			sys.stderr.write( "fragment %d, line %d: %s ..." % (fragment_count, lineno, line[:-1]) )
-			fragment_count += 1
 			
 			# split files
 			fn = str(fragment_count) + "_" + filename
@@ -57,6 +56,7 @@ def main():
 			fragment_start = fragment_end
 			sys.stderr.write('ok \n')
 			
+			fragment_count += 1
 		
 		ts_prev = ts
 		fragment_end += len(line)
