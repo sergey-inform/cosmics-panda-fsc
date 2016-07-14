@@ -61,5 +61,9 @@ def main():
 		ts_prev = ts
 		fragment_end += len(line)
 	
+	# the last fragment		
+	fn = str(fragment_count) + "_" + filename
+	copypart(filename, fn, fragment_start, fragment_end-fragment_start)
+	
 if __name__ == "__main__":
 	main()
