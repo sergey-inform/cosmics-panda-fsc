@@ -66,7 +66,7 @@ def parse_input(_file, chans=None ):
 	return ret
 
 
-def plot(data, outprefix=None, bins=50, histopts={}):
+def plot(data, outprefix=None, bins=None, histopts={}):
 	import matplotlib.pyplot as plt
 
 	defaults = dict(
@@ -78,6 +78,7 @@ def plot(data, outprefix=None, bins=50, histopts={}):
 	
 	# set default values for missing options:
 	histopts.update([(k,v) for k,v in defaults.items() if k not in histopts])
+	
 	
 	for chan, chandata in data.items():
 		
@@ -97,7 +98,13 @@ def plot(data, outprefix=None, bins=50, histopts={}):
 			#if 'density' in histopts and histopts['density']:  # use in future matplotlib versions
 				label += r' (%d)' % len(trigdata)  # add a number of events
 			
-			n, bins, patches = ax.hist(
+			
+			if not bins:
+				# optimize bin sizes
+				bins = freedman_bin_width(trigdata)
+				print 'nbins', bins
+			
+			n, bins_, patches = ax.hist(
 				trigdata,
 				bins,
 				color=next(colors),
@@ -105,7 +112,7 @@ def plot(data, outprefix=None, bins=50, histopts={}):
 				**histopts
 				)
 			
-			histdata.append( (n,bins,patches) )
+			histdata.append( (n,bins_,patches) )
 		
 		plt.title('chan: %s' % str(chan))
 		legend = plt.legend()
@@ -116,6 +123,37 @@ def plot(data, outprefix=None, bins=50, histopts={}):
 			plt.savefig(fn)
 		else:
 			plt.show()
+	
+
+def freedman_bin_width(data):
+	"""Return the optimal an optimal number of bins using the Freedman-Diaconis rule
+
+	The Freedman-Diaconis rule is a normal reference rule like Scott's
+	rule, but uses rank-based statistics for results which are more robust
+	to deviations from a normal distribution.
+	width : float
+	optimal bin width using the Freedman-Diaconis rule
+
+	
+	http://astropy.readthedocs.io/en/latest/_modules/astropy/stats/histogram.html#freedman_bin_width
+	"""
+	import numpy as np
+	data = np.asarray(data)
+	if data.ndim != 1:
+		raise ValueError("data should be one-dimensional")
+
+	n = data.size
+	if n < 4:
+		raise ValueError("data should have more than three entries")
+
+	v25, v75 = np.percentile(data, [25, 75])
+	dx = 2 * (v75 - v25) / (n ** (1 / 3))
+
+	
+	dmin, dmax = data.min(), data.max()
+	nbins = max(1, np.ceil((dmax - dmin) / dx))
+	
+	return nbins
 	
 	
 
@@ -141,8 +179,8 @@ def main():
 	parser.add_argument('--normalize', action='store_true',
 			help="normalize histograms (show density)")
 	
-	parser.add_argument('-b', '--bins', type=int, default=100,
-			help='a number of bins in the histogram')
+	parser.add_argument('-b', '--bins', type=int, default=None,
+			help='a number of bins in the histogram (default: optimize)')
 			
 	parser.add_argument('-c','--chan', type=str, 
 			metavar = 'LIST',
@@ -150,11 +188,13 @@ def main():
 	
 	parser.add_argument('--chan-col', type=str, 
 			metavar = 'N',
-			help='an index of column with a channel name')
+			help='an index of column with a channel name '
+				'(default: %d)' % CHAN_COL_IDX)
 
 	parser.add_argument('--data-col', type=str, 
 			metavar = 'N',
-			help='an index of column with a data')
+			help='an index of column with a data '
+				'(default: %d)' % DATA_COL_IDX)
 
 	parser.add_argument('-o','--output', type=str, default=None,
 			metavar='PATH',
