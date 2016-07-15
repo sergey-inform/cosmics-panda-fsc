@@ -66,7 +66,7 @@ def parse_input(_file, chans=None ):
 	return ret
 
 
-def plot(data, outfile, bins=50, histopts={}):
+def plot(data, outprefix=None, bins=50, histopts={}):
 	import matplotlib.pyplot as plt
 
 	defaults = dict(
@@ -77,15 +77,15 @@ def plot(data, outfile, bins=50, histopts={}):
 		)
 	
 	# set default values for missing options:
-	histopts.update([(k,v) for k,v in defaults.iteritems() if k not in histopts])
+	histopts.update([(k,v) for k,v in defaults.items() if k not in histopts])
 	
-	for chan, chandata in sorted(data.items()):
+	for chan, chandata in data.items():
 		
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 		ax.grid(True)
 		
-		colors=iter(['red','darkgreen','blue','purple','navy','brown','grey'])
+		colors=cycle(['red','darkgreen','blue','black','brown','grey'])
 		
 		histdata = []
 		
@@ -109,8 +109,13 @@ def plot(data, outfile, bins=50, histopts={}):
 		
 		plt.title('chan: %s' % str(chan))
 		legend = plt.legend()
+		plt.draw()
 		
-		plt.show()
+		if outprefix:
+			fn = str(outprefix) + str(chan) + '.png'
+			plt.savefig(fn)
+		else:
+			plt.show()
 	
 	
 
@@ -130,6 +135,7 @@ def main():
 
 	parser.add_argument('-r', '--range', type=str,
 			metavar='N:M',
+			default='0:2000',
 			help='a range of histogram values')
 	
 	parser.add_argument('--normalize', action='store_true',
@@ -150,10 +156,10 @@ def main():
 			metavar = 'N',
 			help='an index of column with a data')
 
-	parser.add_argument('-o','--output', type=argparse.FileType('w'), 
-			metavar='FILE',
-			help="put plot in a file")
-		
+	parser.add_argument('-o','--output', type=str, default=None,
+			metavar='PATH',
+			help="a path for output, one image per channel.")
+	
 	parser.add_argument('--debug', action='store_true',
 			help="be verbose")
 	
@@ -165,11 +171,17 @@ def main():
 	if args.chan_col:
 		CHAN_COL_IDX = args.chan_col
 		
-	
-	
-	#TODO: make channels optional
+	_range = map(float, args.range.split(':')[0:2]) #TODO: catch errors
+
+	#create out dir
+	prefix = args.output
+	if prefix:
+		folder = os.path.dirname(args.output)
+		if folder and not os.path.exists(folder):
+		    os.makedirs(folder)
 	
 	data={} # { channame: {filename: [values], ...}, ... }
+	
 	
 	# Parse the data
 	chans = args.chan.split(',') if args.chan is not None else None
@@ -186,12 +198,13 @@ def main():
 				
 			data[channame][filename] = values
 		
-		
+			
 	opts = dict(
 		normed = args.normalize,
+		range=_range,
 		)
 	
-	plot(data, bins = args.bins, outfile = args.output, histopts=opts )
+	plot(data, bins = args.bins, outprefix = prefix, histopts=opts )
 	
 	#~ print('Press Ctrl+C')
 	#~ signal.pause()
