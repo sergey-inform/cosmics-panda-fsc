@@ -24,6 +24,8 @@ from itertools import chain
 
 import numpy as np
 
+import root_fit
+
 CHAN_COL_IDX = 1  # if None, no channel filtering at all.
 DATA_COL_IDX = 2
 
@@ -238,7 +240,8 @@ def main():
 	
 	
 	histopts = dict(
-			normed = args.normalize,  # replace with density=True in future matplotlib versions 
+			normed = args.normalize,   # replace with density for future matplotlib versions
+			#~ density = args.normalize, 
 			alpha = 0.75,
 			histtype = 'step',
 			range=_range,
@@ -254,7 +257,9 @@ def main():
 		
 		if args.root_fit:
 			# try to fit with root_fit
-			pass
+			root_fit.root_fit(data[chan])
+			
+		
 	
 		else:
 			# plot the data
