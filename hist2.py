@@ -20,6 +20,7 @@ import os
 import signal
 import argparse
 from itertools import cycle  # cycle facecolors
+from itertools import chain
 
 import numpy as np
 
@@ -27,38 +28,27 @@ CHAN_COL_IDX = 1  # if None, no channel filtering at all.
 DATA_COL_IDX = 2
 
 
-def print_err(format_str, *args, **kvargs):
-	sys.stderr.write(str(format_str) + '\n', *args, **kvargs)
-
-
-def sigint_handler(signal, frame):
-        print('You pressed Ctrl+C!')
-        sys.exit(0)
-
-
 def parse_infile(_file, chans=None ):
-	"""
-	Parses a file with data records.
-	
-	chans:
-		a list of channel names; if specified, skip channels not in list
-	
-	Returns a dict {channel_0: values_0, ... channel_N: values_N}
+	""" Parses a file with data records.
+		chans:
+			a list of channel names;
+			if specified, skip channels which are not in list.
+		Returns a dict {channel_0: values_0, ... channel_N: values_N}
 	"""
 	lineno = 0
-	ret = {}  
+	ret = {} 
+	chan = None  # default if no channel filtering
 	
 	for line in _file:
 		lineno += 1
-
 		fields = line.split()
-		
 		try:
-			chan = fields[CHAN_COL_IDX] \
-				if CHAN_COL_IDX is not None \
-				else None
-			val = float( fields[DATA_COL_IDX] )
-		
+			if CHAN_COL_IDX is None:
+				val = float( fields[DATA_COL_IDX] )
+			else:
+				chan = fields[CHAN_COL_IDX]
+				val = float( fields[DATA_COL_IDX] )
+				
 		except IndexError as e:
 			logging.error('%s , line: %d' % (e, lineno) )
 			raise
@@ -76,65 +66,54 @@ def parse_infile(_file, chans=None ):
 		except KeyError:  # haven't seen this channel before
 			ret[chan] = []
 			ret[chan].append(val)
+	
 	return ret
+
 
 
 #TODO: plot( data={trig: values, trig2: values2...
 
-def plot(data, outprefix=None, bins=None, histopts={}):
+def plot(data_tuples, title=None, outfile=None, bins=None, histopts={}):
+	"""
+	
+	"""
 	import matplotlib.pyplot as plt
-
-	defaults = dict(
-		
-		)
 	
-	# set default values for missing options:
-	histopts.update([(k,v) for k,v in defaults.items() if k not in histopts])
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.grid(True)
 	
+	colors=cycle(['red','darkgreen','blue','black','brown','grey'])
 	
-	for chan, chandata in data.items():
+	for label, data in data_tuples:
+		#http://stackoverflow.com/questions/5328556/histogram-matplotlib
 		
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		ax.grid(True)
+		if ('normed' in histopts and histopts['normed']) or \
+			('density' in histopts and histopts['density']):  # normed deprecated in future matplotlib versions
+			label += r' (%d)' % len(data)  # add a number of events
 		
-		colors=cycle(['red','darkgreen','blue','black','brown','grey'])
 		
-		histdata = []
+		if not bins:
+			# optimize bin sizes
+			bins = freedman_bin_width(data)
+			print 'nbins', bins
 		
-		for trigname, trigdata in sorted(chandata.items()):
-			#http://stackoverflow.com/questions/5328556/histogram-matplotlib
-			
-			label = trigname 
-			if 'normed' in histopts and histopts['normed']:
-			#if 'density' in histopts and histopts['density']:  # use in future matplotlib versions
-				label += r' (%d)' % len(trigdata)  # add a number of events
-			
-			
-			if not bins:
-				# optimize bin sizes
-				bins = freedman_bin_width(trigdata)
-				print 'nbins', bins
-			
-			n, bins_, patches = ax.hist(
-				trigdata,
-				bins,
-				color=next(colors),
-				label=label,
-				**histopts
-				)
-			
-			histdata.append( (n,bins_,patches) )
+		n, bins_, patches = ax.hist(
+			data,
+			bins,
+			color=next(colors),
+			label=label,
+			**histopts
+			)
 		
-		plt.title('chan: %s' % str(chan))
-		legend = plt.legend()
-		plt.draw()
-		
-		if outprefix:
-			fn = str(outprefix) + str(chan) + '.png'
-			plt.savefig(fn)
-		else:
-			plt.show()
+	plt.title(title)
+	legend = plt.legend()
+	plt.draw()
+	
+	if outfile:
+		plt.savefig(outfile)
+	else:
+		plt.show()
 	
 
 def freedman_bin_width(data):
@@ -163,7 +142,7 @@ def freedman_bin_width(data):
 	dmin, dmax = data.min(), data.max()
 	nbins = max(1, np.ceil((dmax - dmin) / dx))
 	
-	return nbins *2
+	return nbins
 	
 	
 	
@@ -241,65 +220,72 @@ def main():
 	args = parser.parse_args()
 	print_err(args)
 	
-	# change default column indexes for channel names
+	# --chan-col
 	CHAN_COL_IDX = args.chan_col  # can be None
 	
-	# parse the channels
+	# --chans
 	chans = args.chan.split(',') if args.chan is not None else None
 	if not args.quiet:
 		print_err('chans: %s' %str(chans) )
 		
-	# create dir for output
-	outpath = makedirs(args.output)
-	
-	# parse range
+	# --range
 	_range = None
 	try:
 		if args.range:
 			_range = map(float, args.range.split(':')[:2])
-	
 	except ValueError:
 		print_err('wrong range value "%s" (should be two numbers, separated by ":")' % args.range)
 		exit(1)
 	
-	# get a number of bins
-	nbins = args.bins
+	# --bins
+	bins = args.bins
+
+	# --output
+	outpath = makedirs(args.output)
+
+	# infiles
+	infiles = args.infiles
 
 	# Parse the data
-	data = parse_infiles(args.infiles, chans=chans)  # { chan: [[values], ] ...}, ... }
-
-	# Set default values
-	for chan, val in data
+	data = {}  # {chan1: [values_file1, ... values_fileN], chan2: ... }
+	
+	for idx, fd in enumerate(infiles):
+		parsed = parse_infile(fd, chans=chans) 
+		
+		for chan, vals in parsed.items():
+			if chan not in data:  # met channel the first time
+				data[chan] = [None] * len(infiles)  # [None, None, ...]
+			data[chan][idx] = np.array(vals)
 	
 	
-	if _range is None:
-		_range = auto_range()
+	# Get histogram parameters
+	#~ if _range is None:
+		#~ _range = auto_range( data.values(sample_data) )
 	
-	if bins is None:
-		bins = auto_bins()
-
 	histopts = dict(
-		normed=args.normalize,  # replace with density=True in future matplotlib versions 
-		range=_range,
-		alpha=0.75,
-		histtype='step',
-		)
-
-	chans = data.keys()  # channel names found
+			normed = args.normalize,  # replace with density=True in future matplotlib versions 
+			range = _range,
+			alpha = 0.75,
+			histtype = 'step',
+			)
+			 
+	labels = [f.name for f in infiles]
+	# TODO: strip common part
 	
-	exit(0)
+	for chan in sorted(data.keys() ):  # TODO: numeric sort
+		
+		title = "chan %s" % str(chan)
+		outfile = outpath + str(chan) + '.png' if args.output else None
+		
+		if args.root_fit:
+			# try to fit with root_fit
+			pass
 	
-	for chan in sorted(chans):  # TODO: numeric sort
-		pass
+		else:
+			# plot the data
+			plot( zip(labels,data[chan]), title=title, bins=bins, outfile=outfile, histopts=histopts )
 	
 	
-	
-	# todo: for chan in ... 
-	# 		plot()
-	
-	# TODO: if --root-fit
-	# try to fit with root_fit instead of plotting
-	plot(data, bins = args.bins, outprefix = prefix, histopts=opts )
 	
 	
 	# TODO: range_min, range_max = percentile[5, 85] 
@@ -308,9 +294,6 @@ def main():
 	# auto_bins
 	#
 	
-	#~ print('Press Ctrl+C')
-	#~ signal.pause()
-
 
 def auto_range(data):
 	return (0,4000)
@@ -322,33 +305,22 @@ def auto_bins(datasets):
 	np.concatenate(dataiter)
 	return 100
 	
-
-
-def parse_infiles(infiles, chans=None):
-	"""
-	Call parse_infile for each infile and merge the data by channel name.
 	
-	Return dict of lists of lists:
-		{ channame: [[values], ...], ... }
-	"""
-	data = {}
-	for fd in infiles:
-		parsed = parse_infile(fd, chans=chans) 
+# UTILS
 
-		for channame, values in parsed.items():
-			if channame not in data:
-				data[channame] = []
-				
-			data[channame].append(values)
-	
-	return data
+def print_err(format_str, *args, **kvargs):
+	sys.stderr.write(str(format_str) + '\n', *args, **kvargs)
+
+
+def sigint_handler(signal, frame):
+	print('You pressed Ctrl+C!')
+	sys.exit(0)
 	
 	
 def makedirs(path):
-	""" Create directories for path (like `mkdir -p ...`). """
+	""" Create directories for `path` (like 'mkdir -p'). """
 	if not path:
 		return
-
 	folder = os.path.dirname(path)
 	if folder and not os.path.exists(folder):
 	    os.makedirs(folder)
