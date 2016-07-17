@@ -85,6 +85,11 @@ def plot(data_tuples, title=None, outfile=None, bins=None, histopts={}):
 	
 	colors=cycle(['red','darkgreen','blue','black','brown','grey'])
 	
+	opts = histopts.copy()
+	
+	guess_range = True if 'range' not in opts or opts['range'] is None \
+			else False
+	
 	for label, data in data_tuples:
 		#http://stackoverflow.com/questions/5328556/histogram-matplotlib
 		
@@ -97,13 +102,17 @@ def plot(data_tuples, title=None, outfile=None, bins=None, histopts={}):
 			# optimize bin sizes
 			bins = freedman_bin_width(data)
 			print 'nbins', bins
+			
+		if guess_range:
+			opts['range'] = auto_range(data)
+			print 'range', opts['range']
 		
 		n, bins_, patches = ax.hist(
 			data,
 			bins,
 			color=next(colors),
 			label=label,
-			**histopts
+			**opts
 			)
 		
 	plt.title(title)
@@ -116,36 +125,6 @@ def plot(data_tuples, title=None, outfile=None, bins=None, histopts={}):
 		plt.show()
 	
 
-def freedman_bin_width(data):
-	"""Return the optimal number of bins using the Freedman-Diaconis rule
-
-	The Freedman-Diaconis rule is a normal reference rule like Scott's
-	rule, but uses rank-based statistics for results which are more robust
-	to deviations from a normal distribution.
-
-	
-	http://astropy.readthedocs.io/en/latest/_modules/astropy/stats/histogram.html#freedman_bin_width
-	"""
-	
-	data = np.asarray(data)
-	if data.ndim != 1:
-		raise ValueError("data should be one-dimensional")
-
-	n = data.size
-	if n < 4:
-		raise ValueError("data should have more than three entries")
-
-	v25, v75 = np.percentile(data, [25, 75])
-	dx = 2 * (v75 - v25) / (n ** (1 / 3))
-
-	
-	dmin, dmax = data.min(), data.max()
-	nbins = max(1, np.ceil((dmax - dmin) / dx))
-	
-	return nbins
-	
-	
-	
 def main():
 	global CHAN_COL_IDX
 	global DATA_COL_IDX
@@ -258,15 +237,11 @@ def main():
 			data[chan][idx] = np.array(vals)
 	
 	
-	# Get histogram parameters
-	#~ if _range is None:
-		#~ _range = auto_range( data.values(sample_data) )
-	
 	histopts = dict(
 			normed = args.normalize,  # replace with density=True in future matplotlib versions 
-			range = _range,
 			alpha = 0.75,
 			histtype = 'step',
+			range=_range,
 			)
 			 
 	labels = [f.name for f in infiles]
@@ -283,27 +258,14 @@ def main():
 	
 		else:
 			# plot the data
-			plot( zip(labels,data[chan]), title=title, bins=bins, outfile=outfile, histopts=histopts )
+			plot( zip(labels,data[chan]),
+				title=title,
+				bins=bins,
+				outfile=outfile,
+				histopts=histopts,
+				)
 	
 	
-	
-	
-	# TODO: range_min, range_max = percentile[5, 85] 
-	# range_min = 0 if range_min > 0 and range_min/range_max < 0.3
-	# auto_range
-	# auto_bins
-	#
-	
-
-def auto_range(data):
-	return (0,4000)
-	
-def auto_bins(datasets):
-	
-	dataiter = (d[:1000] for d in datasets)
-	
-	np.concatenate(dataiter)
-	return 100
 	
 	
 # UTILS
@@ -326,6 +288,48 @@ def makedirs(path):
 	    os.makedirs(folder)
 
 
+def auto_range(data):
+	""" Return the optimal range for a histogram.
+	"""
+	data = np.asarray(data)
+	_min = data.min()
+	percentile = np.percentile(data, 99)
+	_range = [_min, percentile]
+	
+	if _min > 0 and _min/percentile < 0.3:
+		_range[0] = 0
+	
+	return _range
+	
+
+def freedman_bin_width(data):
+	"""Return the optimal number of bins using the Freedman-Diaconis rule.
+
+	The Freedman-Diaconis rule is a normal reference rule like Scott's
+	rule, but uses rank-based statistics for results which are more robust
+	to deviations from a normal distribution.
+	
+	Return a recommended number of bins for a `data` set.
+	
+	http://astropy.readthedocs.io/en/latest/_modules/astropy/stats/histogram.html#freedman_bin_width
+	"""
+	
+	data = np.asarray(data)
+	if data.ndim != 1:
+		raise ValueError("data should be one-dimensional")
+
+	n = data.size
+	if n < 4:
+		raise ValueError("data should have more than three entries")
+
+	v25, v75 = np.percentile(data, [25, 75])
+	dx = 2 * (v75 - v25) / (n ** (1 / 3))
+	
+	dmin, dmax = data.min(), data.max()
+	nbins = max(1, np.ceil((dmax - dmin) / dx))
+	
+	return nbins
+	
 
 if __name__ == "__main__":
     main()
