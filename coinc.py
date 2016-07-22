@@ -73,6 +73,9 @@ class Coinc(object):
 		for line in iostream:
 			lineno += 1
 			
+			if line[0] == '#':  # skip comments
+				continue
+			
 			fields = line.split()
 			try:
 				ts = float( fields[ts_col] )
