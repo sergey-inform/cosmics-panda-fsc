@@ -24,7 +24,6 @@ from itertools import chain
 
 import numpy as np
 
-import root_fit
 
 CHAN_COL_IDX = 1  # if None, no channel filtering at all.
 DATA_COL_IDX = 2
@@ -162,7 +161,7 @@ def main():
 			help='set a number of bins'
 			)
 	parser.add_argument('--chan-col',
-			type=str, 
+			type=int, 
 			metavar = 'N',
 			default = CHAN_COL_IDX,
 			help='an index of column with a channel name'
@@ -170,7 +169,7 @@ def main():
 				' (default: %d)' % CHAN_COL_IDX
 			)
 	parser.add_argument('--data-col',
-			type=str, 
+			type=int, 
 			metavar = 'N',
 			help='an index of column with a data'
 				' (default: %d)' % DATA_COL_IDX
@@ -200,9 +199,17 @@ def main():
 	
 	args = parser.parse_args()
 	print_err(args)
+
+	# --root-fit
+	if args.root_fit:
+		import root_fit
 	
 	# --chan-col
 	CHAN_COL_IDX = args.chan_col  # can be None
+	
+	# --data-col
+	if args.data_col is not None:
+		DATA_COL_IDX = args.data_col
 	
 	# --chans
 	chans = args.chan.split(',') if args.chan is not None else None
@@ -222,7 +229,8 @@ def main():
 	bins = args.bins
 
 	# --output
-	outpath = makedirs(args.output)
+	outpath = args.output
+	makedirs(outpath)
 
 	# infiles
 	infiles = args.infiles
@@ -257,10 +265,17 @@ def main():
 		
 		if args.root_fit:
 			# try to fit with root_fit
-			root_fit.root_fit(data[chan])
+			root_fit.root_fit( zip(labels,data[chan]),
+				title=title,
+				bins=bins,
+				outfile=outfile,
+				histopts=histopts,
+				quiet=args.quiet,
+				gui=args.root_gui,
+				)
 			
-		
-	
+			#~ print_err("BREAK")
+			#~ exit(0)
 		else:
 			# plot the data
 			plot( zip(labels,data[chan]),
@@ -269,9 +284,6 @@ def main():
 				outfile=outfile,
 				histopts=histopts,
 				)
-	
-	
-	
 	
 # UTILS
 
