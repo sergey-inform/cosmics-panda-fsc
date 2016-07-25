@@ -21,6 +21,7 @@ import signal
 import argparse
 from itertools import cycle  # cycle facecolors
 from itertools import chain
+import logging
 
 import numpy as np
 
@@ -42,6 +43,10 @@ def parse_infile(_file, chans=None ):
 	
 	for line in _file:
 		lineno += 1
+		
+		if line[0] == "#":  # ignore comments
+			continue
+		
 		fields = line.split()
 		try:
 			if CHAN_COL_IDX is None:
