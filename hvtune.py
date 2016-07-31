@@ -8,10 +8,15 @@ plot HV vs Rate and find a plato.
 
 import sys,os
 import argparse
-from datetime import datetime
+import time
 from time import sleep 
 import logging
+from collections import Counter
+from collections import defaultdict
 
+from matplotlib import pyplot as plt
+
+get_mtime = lambda: int(round(time.time() * 1000))
 
 # https://github.com/sergey-inform/SIS3316
 import sis3316
@@ -19,19 +24,19 @@ import sis3316
 # https://github.com/sergey-inform/panda-fsc-hvctl
 from hvctl import HVUnit
 
+import numpy as np
 
 # //////////  SETUP  ////////////////////
 EVENT_SZ = 35  # bytes per event
 OUTDIR = "./hvtune_out/"
 hv_range = range(2000, 3100, 100)
-channels = range(0,6    )
+channels = range(0,6)
 
 #~ hv_addr = ('localhost', 2217)
 hv_addr = ('172.22.60.202', 2217)
 #~ adc_addr = ('10.0.0.1', 3344)
 adc_addr = ('172.22.60.202', 2222)
 
-chunksize = 1024*1024  # how many bytes to request at once
 
 hvchans = { # channel to HV channel
 	0:	0,
@@ -52,6 +57,8 @@ hvchans = { # channel to HV channel
 	15:	29,
 	}
     
+hv_delay = 12  # sec, delay to let HV Unit to turn on/off
+
 # ///////////////////////////////////////
 
 
@@ -78,6 +85,7 @@ def setLogging(logfile=""):
     
     
 def main():
+    global logger
     parser = argparse.ArgumentParser(description=__doc__,
             formatter_class=argparse.RawTextHelpFormatter)
     # --channels
@@ -104,7 +112,7 @@ def main():
     try:
         adc = sis3316.Sis3316_udp(*adc_addr)
         adc.open()   # enable network access.
-        adc.configure()  # set channel numbers and so on.
+        #~ adc.configure()  # set channel numbers and so on.
         adc_response = "ADC  id: %s, serial: %s, temp: %d°C" % (
                 str(adc.id),
                 hex(adc.serno),
@@ -116,83 +124,113 @@ def main():
     
     logger.info(adc_response)
     
-    hv_delay = 12  # sec
+    
  
     #
     # Turn off HV
-    #~ hv_voltage = int(hv.v()['V'])
-    #~ if hv_voltage > 1:
-        #~ logger.info("Turn off HV (wait %d sec)..." % hv_delay)
-        #~ hv.off()
-        #~ sleep(hv_delay)
+    hv_voltage = int(hv.v()['V'])
+    if hv_voltage > 1:
+        logger.info("Turn off HV (wait %d sec)..." % hv_delay)
+        hv.off()
+        sleep(hv_delay)
     
     #
     # Set initial HV values and turn ON:
-    #~ hv_initial = hv_range[0]
-    #~ logger.info("Begin HV-Tune.")
-    #~ logger.info("For selected channels set HV codes to %d..." % hv_initial)
-    #~ hv.cmd('z')  # set all HV channels to 0
-    #~ for chan in channels:
-        #~ hvchan = hvchans[chan]
-        #~ hv.set(hvchan, hv_initial)
-        #~ logger.info("chan %d (hvchan %d) set to %d" % (chan, hvchan, hv_initial))
-    #~ 
-    #~ logger.warn("HV On (waig %d sec)..." % hv_delay)
-    #~ hv.on()
-    #~ sleep(hv_delay) 
+    hv_initial = hv_range[0]
+    logger.info("Begin HV-Tune.")
+    logger.info("For selected channels set HV codes to %d..." % hv_initial)
+    hv.cmd('z')  # set all HV channels to 0
+    for chan in channels:
+        hvchan = hvchans[chan]
+        hv.set(hvchan, hv_initial)
+        logger.info("chan %d (hvchan %d) set to %d" % (chan, hvchan, hv_initial))
+    
+    logger.warn("HV On (waig %d sec)..." % hv_delay)
+    hv.on()
+    sleep(hv_delay) 
     
     #
     # Begin
     
-    sink = open('/dev/null', 'wb')
+    counter = adc_counts(adc, channels)
     
     for hv_value in hv_range:
         
+        
         # Set new HV code
-        for chan in channels:
-            hv.set(hvchans[chan], hv_value)
+        #~ for chan in channels:
+            #~ hv.set(hvchans[chan], hv_value)
       
         logger.warn("hv %d set" % hv_value)
-        adc.mem_toggle()  # flush the device memory
+        adc.mem_toggle()  # flush ADC memory
+        timer_prev = get_mtime()
         
-        # Perform readout
-        counts = dict( [(ch, 0) for ch in channels])
+        data = defaultdict(list)
+        dcounts = Counter()
+        dtime = 0
         
-        opts = {'chunk_size': chunksize/4 }
-       
         while True:
             sleep(1) # wait 1 sec
-            adc.mem_toggle() 
-            
-            try:
-                counts = readout()
-            except Exception as e:
-                
+            timer, counts = next(counter)
+            if counts is None:
                 continue
-                    
-                    
-                counts[chan] += bytes_ / EVENT_SZ
-                
-            print 'counts', counts
-            break
             
-            # TODO: running sum, median, std...
-        
-        
-        # Replot graphs
+            tdiff = timer-timer_prev
+            dtime += tdiff
+            dcounts += counts
     
-def adc_readout(channels)
+            print dtime, dcounts
+            
+            for ch in sorted(dcounts):
+                val = dcounts[ch]/dtime
+                plt.savefig(OUTDIR + '/%d.png' % ch)
+            
+            #~ for chan, val in counts.items():
+                #~ data[chan].append(1000.0*val/tdiff)  # events per second
+            
+            
+            timer_prev = timer
+            
+            #~ for ch in sorted(counts):
+                #~ print ch, np.mean(data[ch]), np.std(data[ch])
+            
+            #~ if len(data[0]) % 10 == 0:
+                #~ bp = plt.boxplot(data.values())
+                #~ plt.show()    
+            
+            
+            # TODO: optional boxplot
+    
+def adc_counts(adc, channels):
     """ Generator.
-        Yields counts.
+        Yields counts and a time of bank swap (ms).
     """
-     for chan in channels:
+    sink = open('/dev/null', 'wb')
+    chunksize = 1024*1024  # how many bytes to request at once
+    opts = {'chunk_size': chunksize/4 }
+    
+    while True:
+        counts = Counter()
+        
+        try:
+            adc.mem_toggle() # swap ADC memory banks
+            mtimer = get_mtime()
+            
+            for chan in channels:
                 bytes_ = 0
-                try:
-                    for ret in adc.readout_pipe(chan, sink, 0, opts ):  # per chunk
-                       bytes_ += ret['transfered'] * 4  # words -> bytes
-                except Exception as e:
-                    # ignore readout errors
-                    logger.error(e)
+                
+                for ret in adc.readout_pipe(chan, sink, 0, opts ):  # per chunk
+                    bytes_ += ret['transfered'] * 4  # words -> bytes
+            
+                counts[chan] += bytes_ / EVENT_SZ
+        
+        except Exception as e:
+                # ignore readout errors
+                logger.warn(e)
+                yield mtimer, None  # yield None
+        
+        yield mtimer, counts
+    
     
 def makedirs(path):
 	""" Create directories for `path` (like 'mkdir -p'). """
