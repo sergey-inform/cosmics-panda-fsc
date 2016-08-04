@@ -10,11 +10,15 @@ import sys
 import os
 import argparse
 import time
-import logging
+
 
 from time import sleep
 from collections import Counter
 from collections import defaultdict
+
+from util import makedirs
+from util import setlog#, log_errors
+from util import retry
 
 # https://github.com/sergey-inform/SIS3316
 import sis3316
@@ -23,8 +27,8 @@ import sis3316
 from hvctl import HVUnit
 
 OUTDIR = "./hvtune_out/"
-hv_range = range(2500, 3001, 100)
-threshold_range = range(50, 120, 20)
+hv_range = range(2200, 3001, 100)
+threshold_range = range(30, 61, 10)
 
 EVENT_SZ = 35
 #~ hv_addr = ('localhost', 2217)
@@ -51,151 +55,152 @@ HV_CHANS = { # channel to HV channel
     15: 29,
     }
 
-HV_DELAY = 12  # sec, delay to let HV Unit to turn on/off
-
 # /////////////////////////////////////////////
 
 get_mtime = lambda: int(round(time.time() * 1000))
-logger=None
+logger=None  # will be instantiated by setlog() 
 
-def log_errors(f):
+
+def err_exit(f):
+    """ Just log the error and exit. """
     def wrapper(self, *args, **kvargs):
+        global logger
         try:
             ret = f(self, *args, **kvargs)
         except Exception as e:
-            self.logger.error("{}: {}".format(self.name, e) )
-            raise
+            logger.error("{}: {}".format(self.name, e) )
+            exit(e.errno)
         return ret
     return wrapper
 
-#https://gist.github.com/n1ywb/2570004
-def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
-    """Function decorator implementing retrying logic.
-    delay: Sleep this many seconds * backoff * try number after failure
-    backoff: Multiply delay by this factor after each failure
-    exceptions: A tuple of exception classes; default (Exception,)
-    hook: A function with the signature myhook(tries_remaining, exception);
-          default None
-    The decorator will call the function up to max_tries times if it raises
-    an exception.
-    By default it catches instances of the Exception class and subclasses.
-    This will recover after all but the most fatal errors. You may specify a
-    custom tuple of exception classes with the 'exceptions' argument; the
-    function will only be retried if it raises one of the specified
-    exceptions.
-    Additionally you may specify a hook function which will be called prior
-    to retrying with the number of remaining tries and the exception instance;
-    see given example. This is primarily intended to give the opportunity to
-    log the failure. Hook is not called after failure if no retries remain.
-    """
-    def dec(func):
-        def f2(*args, **kwargs):
-            if max_tries < 0:
-                raise ValueError
-            mydelay = delay
-            tries = range(1+max_tries)
-            
-            for tries_remaining in tries:
-                try:
-                   return func(*args, **kwargs)
-                except exceptions as e:
-                    if tries_remaining > 0:
-                        if hook is not None:
-                            hook(tries_remaining, e, mydelay)
 
-                        sleep(mydelay)
-                        mydelay = mydelay * backoff
-                    else:
-                        #~ raise
-                        exit(1)
-                else:
-                    break
-        return f2
-    return dec
+def myretry(*args, **kvargs):
+    """ Log error and how many retries is remaining. """
+    def log_retries(tries_remaining, exception, delay):
+        global logger
+        logger.warn('{}; retry {} more times, next in {} sec.'\
+            .format(
+                str(exception),
+                tries_remaining,
+                delay
+            )
+        )
+    kvargs['hook']=log_retries
+    return retry(*args, **kvargs)
 
 
 class HV(object):
+    """A wrapper object for HV setup implementation.
+    """
+    HV_DELAY = 15  # a delay to let HV Unit to turn on/off, seconds.
+    MAX_STEP = 100 # do not allow to change HV at this step without turning HV off
     ALL_CHANNELS = HV_CHANS.keys()
-
-    def __init__(self, *params):
-        self.dev = HVUnit(*params)
-        self.logger = logger  # global
-        self.name = 'HV Unit'
-        self.values = defaultdict(None)
-        
-    def wait(self):
-        self.logger.debug("wait {} seconds...".format(HV_DELAY))
-        sleep(HV_DELAY)
+    name = 'HV Unit'
     
-    @retries(0)
-    @log_errors
+    @err_exit
+    def __init__(self, *params):
+        global logger
+        self.dev = HVUnit(*params)
+        self.logger = logger
+        self.memory = dict()
+
     def connect(self):
-        """ Try to get some data """
+        """ Check the unit is responding. """
         hv_responce = self.dev.cmd('v')[:-1]  # trim \n
         return hv_responce
-    
-    @log_errors
-    def off(self):
+
+    # Interface
+    @myretry(10)
+    def is_on(self):
         hv = self.dev
         hv_voltage = int(hv.v()['V'])
         if hv_voltage > 1:
+            return True
+    
+    @myretry(10)
+    def off(self):
+        hv = self.dev
+        if self.is_on():
             self.logger.debug("turn HV off.")
             hv.off()
             self.wait()
 
-    @log_errors
+    @myretry(10)
     def on(self):
         hv = self.dev
-        hv_voltage = int(hv.v()['V'])
-        if hv_voltage < 80:
+        if not self.is_on():
             self.logger.debug("turn HV on.")
             hv.on()
             self.wait()
-            
-    @log_errors
+
+    @myretry(10)
     def reset(self):
         self.logger.debug("reset all HV channels.")
         self.dev.cmd('z')
-    
-    @log_errors
+
+    @myretry(10)
     def set(self, chan, value):
         hv_chan = HV_CHANS[chan]
         self.logger.debug("set HV chan {} to {}".format(hv_chan, value))
         self.dev.set(hv_chan, value)
-        self.values[chan] = value
-    
+        self.memory[chan] = value
+
+    def wait(self):
+        delay = self.HV_DELAY
+        self.logger.debug("wait {} seconds...".format(delay))
+        sleep(delay)
+
+    # Procedures
     def set_all(self, value, channels=ALL_CHANNELS):
-        """ Set initial HV value and turn HV on. """
+        """ Set HV values in a smart way: without turning HV off 
+        if value changes not too harsh.
+        """
+        memo = self.memory
         if value > 4000 or value < 1:
             raise ValueError("Wrong value %d." % value)
         
-        self.off()
-        self.reset()
+        # If at least one channel was not set previously (not in memory)
+        # then turn HV off before seting the values.
+
+        if any((chan not in memo for chan in channels)):
+            self.off()
+            self.reset()
+
+        # If at least for one channel the value changes more than MAX_STEP,
+        # then turn HV off before seting the values.
+        # (to not to change HV value harshly).
+
+        for chan in channels:
+            if chan in memo and abs(memo[chan] - value) > self.MAX_STEP:
+                self.off()
+                self.reset()
+                break
+        
+        print memo
+        # Restore memorized values
+        for chan, memorized in memo.items():
+            if chan not in channels:  # no new value for this channel
+                self.set(chan, memorized)
+        
+        # Set the new values
         for chan in channels:
             self.set(chan, value)
+        
         self.on()
         
-    def incr_all(self, increment, channels=ALL_CHANNELS):
-        """ Update value without turning HV off. """
-        if abs(increment) > 100:
-            raise ValueError("Not so fast!")
-        
-        for chan in channels: 
-            if chan not in self.values:
-                self.logger.error("can't increment: channel {} is not set.".format(chan) )
-                continue
-        
-            prev = self.values[chan]
-            self.set(chan, prev + increment)
 
 
 class ADC(object):
+    """A wrapper object for ADC readout.
+    """
+    name = "ADC Unit"
+    ALL_CHANNELS = range(0,16)
+    
     def __init__(self, addr, *params):
         self.dev = sis3316.Sis3316_udp(addr, *params)
         self.logger = logger  # global
         self.name = "ADC Unit {}.".format(addr)
     
-    @log_errors
     def connect(self):
         """ Connect and read some status values. """
         adc = self.dev
@@ -209,27 +214,24 @@ class ADC(object):
         
         return adc_response
     
-    @retries(10)
-    @log_errors
-    def set_thresholds(self, value, channels=range(0,16)):
+    @myretry(10)
+    def set_thresholds(self, value, channels=ALL_CHANNELS):
         for ch in channels:
             self.dev.chan[ch].trig.threshold = 0x8000000 + value
     
-    @retries(1)
-    @log_errors
-    def get_thresholds(self, value, channels=range(0,16)):
+    @myretry(10)
+    def get_thresholds(self, value, channels=ALL_CHANNELS):
         return [(self.dev.chan[ch].trig.threshold - 0x8000000) for ch in channels]
     
-    @retries(10)
-    @log_errors   
-    def measure_rates(self, channels=range(0,16)):
+    @myretry(10)
+    def measure_rates(self, channels=ALL_CHANNELS):
         adc = self.dev
         ts_summ = 0
         
         ts_prev = get_mtime()
         adc.mem_toggle()  # flush ADC memory
         
-        sleep(30)  # TODO: estimate confidence of the measurement
+        sleep(300)  # TODO: estimate confidence of the measurement
 
         ts = get_mtime()
         adc.mem_toggle()
@@ -256,7 +258,7 @@ def main():
     #~ print args
     
     makedirs(OUTDIR)
-    logger = setLogging(logfile=OUTDIR+'/log.log')
+    logger = setlog('hvtune', logfile=OUTDIR+'/log.log', console_lvl='DEBUG')
 
     hv = HV(*HV_ADDR)
     adc = ADC(*ADC_ADDR)
@@ -267,23 +269,13 @@ def main():
     data = defaultdict(list)  # { (chan, threshold): [(hv, rate), ...] }
     plots = {}  # { chan: plot }
     
-    # Start test
-    hv_prev = hv_range[0]
-    hv.set_all(hv_prev, channels=channels)
-    
-    adc.set_thresholds(50) #DELME
-    exit(0)
-    
     for hv_ in hv_range:
-        incr = hv_ - hv_prev
-    
-        if incr:
-            hv.incr_all(incr, channels=channels)
-        
+        hv.set_all(hv_, channels=channels)
         
         for th_ in threshold_range:
             adc.set_thresholds(th_)
             logger.info('set {} threshold {}'.format(hv_, th_))
+            logger.info(hv.connect())  # log HV status
 
             rates = adc.measure_rates(channels)
             
@@ -300,36 +292,6 @@ def main():
         
     hv.off()
 
-
-def setLogging(logfile=""):
-    
-    logger = logging.getLogger('hvtune')
-    
-    console_hdlr = logging.StreamHandler()
-    console_formatter = logging.Formatter('%(message)s')
-    console_hdlr.setFormatter(console_formatter)
-    #~ console_hdlr.setLevel(logging.WARNING)  # only warnings are printed to console
-    console_hdlr.setLevel(logging.DEBUG) 
-    logger.addHandler(console_hdlr)
-
-    if logfile:
-        file_hdlr = logging.FileHandler(logfile)
-        file_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        file_hdlr.setFormatter(file_formatter)
-        #~ file_hdlr.setLevel(logging.INFO)
-        file_hdlr.setLevel(logging.DEBUG)
-        logger.addHandler(file_hdlr)
-   
-    logger.setLevel(logging.DEBUG)  # catch em all
-    return logger
-
-def makedirs(path):
-    """ Create directories for `path` (like 'mkdir -p'). """
-    if not path:
-        return
-    folder = os.path.dirname(path)
-    if folder and not os.path.exists(folder):
-        os.makedirs(folder)
 
 if __name__ == "__main__":
     main()
