@@ -23,8 +23,8 @@ import sis3316
 from hvctl import HVUnit
 
 OUTDIR = "./hvtune_out/"
-hv_range = range(2100, 3001, 100)
-threshold_range = range(10, 80, 10)
+hv_range = range(2500, 3001, 100)
+threshold_range = range(50, 120, 20)
 
 EVENT_SZ = 35
 #~ hv_addr = ('localhost', 2217)
@@ -106,7 +106,7 @@ def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
                         sleep(mydelay)
                         mydelay = mydelay * backoff
                     else:
-                        raise
+                        #~ raise
                         exit(1)
                 else:
                     break
@@ -180,11 +180,12 @@ class HV(object):
         if abs(increment) > 100:
             raise ValueError("Not so fast!")
         
-        for chan in channels:
-            prev = self.values[chan]
-            if prev is None:
+        for chan in channels: 
+            if chan not in self.values:
                 self.logger.error("can't increment: channel {} is not set.".format(chan) )
                 continue
+        
+            prev = self.values[chan]
             self.set(chan, prev + increment)
 
 
@@ -194,7 +195,6 @@ class ADC(object):
         self.logger = logger  # global
         self.name = "ADC Unit {}.".format(addr)
     
-    @retries(0)
     @log_errors
     def connect(self):
         """ Connect and read some status values. """
@@ -209,7 +209,7 @@ class ADC(object):
         
         return adc_response
     
-    @retries(1)
+    @retries(10)
     @log_errors
     def set_thresholds(self, value, channels=range(0,16)):
         for ch in channels:
@@ -220,7 +220,7 @@ class ADC(object):
     def get_thresholds(self, value, channels=range(0,16)):
         return [(self.dev.chan[ch].trig.threshold - 0x8000000) for ch in channels]
     
-    @retries(7)
+    @retries(10)
     @log_errors   
     def measure_rates(self, channels=range(0,16)):
         adc = self.dev
@@ -229,7 +229,7 @@ class ADC(object):
         ts_prev = get_mtime()
         adc.mem_toggle()  # flush ADC memory
         
-        sleep(10)  # TODO: estimate confidence of the measurement
+        sleep(30)  # TODO: estimate confidence of the measurement
 
         ts = get_mtime()
         adc.mem_toggle()
@@ -237,7 +237,7 @@ class ADC(object):
         ts_diff = ts - ts_prev
         byte_counts = adc.poll_act(channels)
         rates = []
-
+        
         for bc in byte_counts:
             rate = 1000.0 * bc / EVENT_SZ / ts_diff
             rates.append(round(rate,2))
@@ -261,33 +261,44 @@ def main():
     hv = HV(*HV_ADDR)
     adc = ADC(*ADC_ADDR)
     
-    print hv.connect()
-    print adc.connect()
+    logger.info( hv.connect())
+    logger.info( adc.connect())
     
     data = defaultdict(list)  # { (chan, threshold): [(hv, rate), ...] }
     plots = {}  # { chan: plot }
     
     # Start test
-    #~ hv.set_all(hv_range[0], channels=channels)
-        
+    hv_prev = hv_range[0]
+    hv.set_all(hv_prev, channels=channels)
+    
+    adc.set_thresholds(50) #DELME
+    exit(0)
+    
     for hv_ in hv_range:
-        #~ hv_incr
+        incr = hv_ - hv_prev
+    
+        if incr:
+            hv.incr_all(incr, channels=channels)
+        
+        
         for th_ in threshold_range:
-            print th_
             adc.set_thresholds(th_)
+            logger.info('set {} threshold {}'.format(hv_, th_))
+
             rates = adc.measure_rates(channels)
             
+            if all( [r < 0.1 for r in rates.values()]):
+                # move to next HV
+                break
+            
             for chan, rate in rates.items():
+                print chan, th_, hv_, rate
+                sys.stdout.flush()
                 data[(chan, th_)].append((hv_, rate))
             
-            print data
-            # Update plots
-            #~ for chan, plot in plots.items():
-               
-                #~ pass
-            #saveplot    
-                
-    #~ hv.off()
+        hv_prev = hv_
+        
+    hv.off()
 
 
 def setLogging(logfile=""):
