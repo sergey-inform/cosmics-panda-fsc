@@ -28,7 +28,7 @@ from hvctl import HVUnit
 
 OUTDIR = "./hvtune_out/"
 hv_range = range(2200, 3001, 100)
-threshold_range = range(30, 61, 10)
+threshold_range = range(50, 101, 10)
 
 EVENT_SZ = 35
 #~ hv_addr = ('localhost', 2217)
@@ -176,7 +176,6 @@ class HV(object):
                 self.reset()
                 break
         
-        print memo
         # Restore memorized values
         for chan, memorized in memo.items():
             if chan not in channels:  # no new value for this channel
@@ -234,15 +233,13 @@ class ADC(object):
         sleep(300)  # TODO: estimate confidence of the measurement
 
         ts = get_mtime()
-        adc.mem_toggle()
-        
         ts_diff = ts - ts_prev
         byte_counts = adc.poll_act(channels)
         rates = []
         
         for bc in byte_counts:
             rate = 1000.0 * bc / EVENT_SZ / ts_diff
-            rates.append(round(rate,2))
+            rates.append(round(rate,3))
         
         return dict(zip(channels,rates))
         
@@ -287,8 +284,6 @@ def main():
                 print chan, th_, hv_, rate
                 sys.stdout.flush()
                 data[(chan, th_)].append((hv_, rate))
-            
-        hv_prev = hv_
         
     hv.off()
 
