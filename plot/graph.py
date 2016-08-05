@@ -10,19 +10,19 @@ filled_markers = Line2D.filled_markers
 class Plot(object):
     def __init__(self, data, opts={}):
         self.fig = plt.figure()
-        self.plt = self.plot(data, opts)
+        self.plt = self.plot(data, **opts)
         
-    def plot(self, data, opts):
+    def plot(self, data, title="", **opts):
         markers=cycle(filled_markers)
-        
-        labels =  sorted(data.keys(), key=lambda x: natural_keys(x[0]) )
+        labels = sorted(data.keys(), key=lambda x: natural_keys(x[0]) )
         
         for label in labels:
             x, y = data[label]
             plt.plot(x, y, label=label, marker=next(markers), **opts)
         
+        plt.title(title)
         plt.grid()
-        plt.legend(title='trigger threshold:', loc='upper left')
+        plt.legend(title='Trigger Threshold:', loc='upper left')
         return plt
     
     def show(self):

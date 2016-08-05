@@ -17,6 +17,7 @@ import argparse
 import graph
 
 from collections import defaultdict
+from util import natural_keys
 
 
 GRAPH_COL_INDEXES = (0, 1, 2, 3)  # A, B, X, Y
@@ -101,8 +102,12 @@ def main():
     indexes = GRAPH_COL_INDEXES
     data = get_data(args.infiles, indexes)
     
-    for A, plot_data in data.items():
-        plot = graph.Plot(plot_data)
+    keys = sorted(data.keys(), key=natural_keys )
+    
+    for key in keys:
+        plot_data = data[key]
+        opts= dict(title='Channel {}'.format(key))
+        plot = graph.Plot(plot_data, opts)
         plot.show()
     
 if __name__ == "__main__":
