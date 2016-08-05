@@ -30,7 +30,7 @@ import numpy as np
 EVENT_SZ = 35  # bytes per event
 OUTDIR = "./hvtune_out/"
 hv_range = range(2000, 3100, 100)
-channels = range(0,6)
+channels = range(0,16)
 
 #~ hv_addr = ('localhost', 2217)
 hv_addr = ('172.22.60.202', 2217)

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Find optimal HV value for detector's PMTs in cosmics setup.
-Read out SIS3316 ADC while changing HV value in specified range,
-plot HV vs Rate and find a plato.
+Get data to find optimal HV settings for each channel cosmics setup.
+  
+Measure event rates in SIS3316 ADC while changing HV value and ADC threshold in specified range.
 """
 
 import sys
@@ -27,8 +27,8 @@ import sis3316
 from hvctl import HVUnit
 
 OUTDIR = "./hvtune_out/"
-hv_range = range(2200, 3001, 100)
-threshold_range = range(50, 101, 10)
+hv_range = range(2000, 2601, 25)
+threshold_range = range(60, 91, 15)
 
 EVENT_SZ = 35
 #~ hv_addr = ('localhost', 2217)
@@ -93,7 +93,7 @@ class HV(object):
     """A wrapper object for HV setup implementation.
     """
     HV_DELAY = 15  # a delay to let HV Unit to turn on/off, seconds.
-    MAX_STEP = 100 # do not allow to change HV at this step without turning HV off
+    MAX_STEP = 200 # do not allow to change HV at this step without turning HV off
     ALL_CHANNELS = HV_CHANS.keys()
     name = 'HV Unit'
     
@@ -230,7 +230,7 @@ class ADC(object):
         ts_prev = get_mtime()
         adc.mem_toggle()  # flush ADC memory
         
-        sleep(300)  # TODO: estimate confidence of the measurement
+        sleep(60)  # TODO: estimate confidence of the measurement
 
         ts = get_mtime()
         ts_diff = ts - ts_prev
@@ -249,7 +249,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
             formatter_class=argparse.RawTextHelpFormatter)
     # --channels
-    channels = range(0,6)
+    channels = range(0,16)
     
     args = parser.parse_args()
     #~ print args
@@ -271,7 +271,7 @@ def main():
         
         for th_ in threshold_range:
             adc.set_thresholds(th_)
-            logger.info('set {} threshold {}'.format(hv_, th_))
+            logger.info('HV {}, threshold {}'.format(hv_, th_))
             logger.info(hv.connect())  # log HV status
 
             rates = adc.measure_rates(channels)
