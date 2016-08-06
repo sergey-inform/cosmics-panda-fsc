@@ -15,6 +15,7 @@ import time
 from time import sleep
 from collections import Counter
 from collections import defaultdict
+from operator import div
 
 from util import makedirs
 from util import setlog#, log_errors
@@ -34,7 +35,7 @@ EVENT_SZ = 35
 #~ hv_addr = ('localhost', 2217)
 HV_ADDR = ('172.22.60.202', 2217)
 #~ adc_addr = ('10.0.0.1', 3344)
-ADC_ADDR = ('172.22.60.202', 2222)
+ADC_ADDR = ('172.22.60.202', 2223)
 
 HV_CHANS = { # channel to HV channel
     0:  0,
@@ -54,6 +55,8 @@ HV_CHANS = { # channel to HV channel
     14: 28,
     15: 29,
     }
+    
+MINIMAL_RATE = 1.0 # eps. no reason to set threshold higher if this rate on all channels.
 
 # /////////////////////////////////////////////
 
@@ -69,7 +72,10 @@ def err_exit(f):
             ret = f(self, *args, **kvargs)
         except Exception as e:
             logger.error("{}: {}".format(self.name, e) )
-            exit(e.errno)
+            if hasattr(e, 'errno'):
+                exit(e.errno)
+            else:
+                exit(1)
         return ret
     return wrapper
 
@@ -200,9 +206,11 @@ class ADC(object):
         self.logger = logger  # global
         self.name = "ADC Unit {}.".format(addr)
     
+    @err_exit
     def connect(self):
         """ Connect and read some status values. """
         adc = self.dev
+        adc.default_timeout=1.0
         adc.open()   # enable network access.
         adc.configure()  # set channel numbers and so on.
         adc_response = "ADC  id: %s, serial: %s, temp: %d°C" % (
@@ -210,6 +218,7 @@ class ADC(object):
                 hex(adc.serno),
                 adc.temp,
                 )
+        
         
         return adc_response
     
@@ -230,17 +239,41 @@ class ADC(object):
         ts_prev = get_mtime()
         adc.mem_toggle()  # flush ADC memory
         
-        sleep(60)  # TODO: estimate confidence of the measurement
+        total_mtime = 0
+        total_bytes = [0] * 16
+        prev_rates = None
+        
+        while True:
+            sleep(10)
+            ts = get_mtime()
+            ts_diff = ts - ts_prev
+            ts_prev = ts
+            
+            byte_counts = adc.poll_act(channels)
+            
+            total_mtime += ts_diff
+            
+            for idx, bc in enumerate(byte_counts):
+                total_bytes[idx] = bc
+            
+            rates = []
+            for bc in total_bytes:
+                rate = 1000.0 * bc / EVENT_SZ / total_mtime
+                rates.append(round(rate,3))
+            
+            
+            if prev_rates:
+                rate_rel = [round(abs(1-a/b),4) if b != 0 else 0 for a, b in zip(rates,prev_rates)]
+                sys.stderr.write("{}  \r".format(rate_rel))
+                
+                if all( [x<0.020 for x in rate_rel]) :
+                    break
+                
+            prev_rates = rates
+            
+            if total_mtime > (1000 * 600):
+                break
 
-        ts = get_mtime()
-        ts_diff = ts - ts_prev
-        byte_counts = adc.poll_act(channels)
-        rates = []
-        
-        for bc in byte_counts:
-            rate = 1000.0 * bc / EVENT_SZ / ts_diff
-            rates.append(round(rate,3))
-        
         return dict(zip(channels,rates))
         
 
@@ -276,12 +309,12 @@ def main():
 
             rates = adc.measure_rates(channels)
             
-            if all( [r < 0.1 for r in rates.values()]):
+            if all( [r < MINIMAL_RATE for r in rates.values()]):
                 # move to next HV
                 break
             
             for chan, rate in rates.items():
-                print chan, th_, hv_, rate
+                print chan, th_, hv_, rate, '  '
                 sys.stdout.flush()
                 data[(chan, th_)].append((hv_, rate))
         
