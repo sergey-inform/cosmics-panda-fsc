@@ -108,7 +108,8 @@ def main():
         plot_data = data[key]
         opts= dict(title='Channel {}'.format(key))
         plot = graph.Plot(plot_data, opts)
-        plot.show()
+        filename = "test/ch{}.png".format(key)
+        plot.savefig(filename)
     
 if __name__ == "__main__":
     main()
