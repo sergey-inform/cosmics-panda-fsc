@@ -22,7 +22,7 @@ class Plot(object):
         
         plt.title(title)
         plt.grid()
-        plt.legend(title='Trigger Threshold:', loc='upper left')
+        plt.legend(title='ADC Threshold:', loc='upper left')
         return plt
     
     def show(self):

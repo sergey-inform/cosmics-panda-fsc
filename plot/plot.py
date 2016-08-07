@@ -109,7 +109,10 @@ def main():
         opts= dict(title='Channel {}'.format(key))
         plot = graph.Plot(plot_data, opts)
         filename = "test/ch{}.png".format(key)
-        plot.save(filename)
+    
+	plot.plt.ylim((0,100))
+	#plot.show()
+	plot.save(filename)
     
 if __name__ == "__main__":
     main()
