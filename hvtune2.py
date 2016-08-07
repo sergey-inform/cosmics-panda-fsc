@@ -28,14 +28,14 @@ import sis3316
 from hvctl import HVUnit
 
 OUTDIR = "./hvtune_out/"
-hv_range = range(2000, 2601, 25)
-threshold_range = range(60, 91, 15)
+hv_range = range(1800, 3001, 50)
+threshold_range = range(40, 91, 10)
 
 EVENT_SZ = 35
 #~ hv_addr = ('localhost', 2217)
 HV_ADDR = ('172.22.60.202', 2217)
 #~ adc_addr = ('10.0.0.1', 3344)
-ADC_ADDR = ('172.22.60.202', 2223)
+ADC_ADDR = ('172.22.60.202', 2222)
 
 HV_CHANS = { # channel to HV channel
     0:  0,
@@ -259,13 +259,18 @@ class ADC(object):
             rates = []
             for bc in total_bytes:
                 rate = 1000.0 * bc / EVENT_SZ / total_mtime
+                if bc >= 16646175:
+                    rate=float('inf')
                 rates.append(round(rate,3))
             
-            
+            if all( [r == float('inf') for r in rates]):
+                #overflow in all channels
+                return dict(zip(channels, rates))
+
+
             if prev_rates:
                 rate_rel = [round(abs(1-a/b),4) if b != 0 else 0 for a, b in zip(rates,prev_rates)]
                 sys.stderr.write("{}  \r".format(rate_rel))
-                
                 if all( [x<0.020 for x in rate_rel]) :
                     break
                 
