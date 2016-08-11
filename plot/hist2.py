@@ -99,6 +99,9 @@ def plot(data_tuples, title=None, outfile=None, bins=None, histopts={}):
     for label, data in data_tuples:
         #http://stackoverflow.com/questions/5328556/histogram-matplotlib
         
+        if data is None:
+            continue
+        
         if ('normed' in histopts and histopts['normed']) or \
             ('density' in histopts and histopts['density']):  # normed deprecated in future matplotlib versions
             label += r' (%d)' % len(data)  # add a number of events
@@ -113,6 +116,7 @@ def plot(data_tuples, title=None, outfile=None, bins=None, histopts={}):
             opts['range'] = auto_range(data)
             print 'range', opts['range']
         
+            
         n, bins_, patches = ax.hist(
             data,
             bins,
@@ -270,7 +274,7 @@ def main():
         
         if args.root_fit:
             # try to fit with root_fit
-            root_fit.root_fit( zip(labels,data[chan]),
+            root_fit.root_fit(data[chan], labels,
                 title=title,
                 bins=bins,
                 outfile=outfile,
@@ -279,8 +283,8 @@ def main():
                 gui=args.root_gui,
                 )
             
-            #~ print_err("BREAK")
-            #~ exit(0)
+            print_err("BREAK")
+            exit(0)
         else:
             # plot the data
             plot( zip(labels,data[chan]),
