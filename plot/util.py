@@ -35,3 +35,6 @@ def common_start(*strings):
                 return
 
     return ''.join(_iter())
+
+
+# extrema
