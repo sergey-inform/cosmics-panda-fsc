@@ -61,7 +61,7 @@ class Coinc(object):
 		Yields one cluster at a time.
 		"""
 		
-		counts = self.counts
+		#~ counts = self.counts
 		stats = self.stats
 		
 		lineno = 0
@@ -96,7 +96,7 @@ class Coinc(object):
 				raise ValueError('input is not sorted, iostream line: %d' % lineno,)
 			
 			if val < threshold:	# always false if threshold is None
-				counts['nthreshold'] += 1
+				self.counts['nthreshold'] += 1
 				continue # just ignore current line
 
 			if ts - jitter > prev_ts:  # true if prev_ts is None, since None is < than any value
