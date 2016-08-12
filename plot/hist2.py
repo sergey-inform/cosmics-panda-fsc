@@ -25,6 +25,7 @@ import logging
 
 import numpy as np
 
+from util import common_start
 
 CHAN_COL_IDX = 1  # if None, no channel filtering at all.
 DATA_COL_IDX = 2
@@ -79,12 +80,15 @@ def parse_infile(_file, chans=None ):
 
 #TODO: plot( data={trig: values, trig2: values2...
 
-def plot(data_tuples, title=None, outfile=None, bins=None, histopts={}):
+def plot(data, labels, title='', outfile=None, bins=None, histopts={}):
     """
     
     """
     import matplotlib.pyplot as plt
-    
+
+    if len(labels) != len(data):
+        raise ValueError("the number of labels doesn't match the number of datasets.")
+        
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.grid(True)
@@ -96,8 +100,18 @@ def plot(data_tuples, title=None, outfile=None, bins=None, histopts={}):
     guess_range = True if 'range' not in opts or opts['range'] is None \
             else False
     
-    for label, data in data_tuples:
+    # Strip common part from labels and make it a title
+    common_part = common_start(*labels)
+    common_len = len(common_part)
+    shortlabels = [l[common_len:] for l in labels]
+    
+    if common_part:
+        title += ' (%s)' % common_part
+    
+    for idx, data in enumerate(data):
         #http://stackoverflow.com/questions/5328556/histogram-matplotlib
+        
+        label = shortlabels[idx]
         
         if data is None:
             continue
@@ -283,11 +297,9 @@ def main():
                 gui=args.root_gui,
                 )
             
-            print_err("BREAK")
-            exit(0)
         else:
             # plot the data
-            plot( zip(labels,data[chan]),
+            plot( data[chan], labels,
                 title=title,
                 bins=bins,
                 outfile=outfile,
