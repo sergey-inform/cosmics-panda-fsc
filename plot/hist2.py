@@ -26,6 +26,8 @@ import logging
 import numpy as np
 
 from util import common_start
+from util import natural_keys
+
 
 CHAN_COL_IDX = 1  # if None, no channel filtering at all.
 DATA_COL_IDX = 2
@@ -100,18 +102,10 @@ def plot(data, labels, title='', outfile=None, bins=None, histopts={}):
     guess_range = True if 'range' not in opts or opts['range'] is None \
             else False
     
-    # Strip common part from labels and make it a title
-    common_part = common_start(*labels)
-    common_len = len(common_part)
-    shortlabels = [l[common_len:] for l in labels]
-    
-    if common_part:
-        title += ' (%s)' % common_part
-    
     for idx, data in enumerate(data):
         #http://stackoverflow.com/questions/5328556/histogram-matplotlib
         
-        label = shortlabels[idx]
+        label = labels[idx]
         
         if data is None:
             continue
@@ -279,16 +273,23 @@ def main():
             )
              
     labels = [f.name for f in infiles]
-    # TODO: strip common part
+
+    # Strip common part from labels and make it a title
+    common_part = common_start(*labels)
+    common_len = len(common_part)
+    shortlabels = [l[common_len:] for l in labels]
     
-    for chan in sorted(data.keys() ):  # TODO: numeric sort
+    for chan in sorted(data.keys(), key=natural_keys ):  # TODO: numeric sort
         
         title = "chan %s" % str(chan)
+        if common_part:
+            title += ' (%s)' % common_part
+        
         outfile = outpath + str(chan) + '.png' if args.output else None
         
         if args.root_fit:
             # try to fit with root_fit
-            root_fit.root_fit(data[chan], labels,
+            root_fit.root_fit(data[chan], shortlabels,
                 title=title,
                 bins=bins,
                 outfile=outfile,
@@ -299,7 +300,7 @@ def main():
             
         else:
             # plot the data
-            plot( data[chan], labels,
+            plot( data[chan], shortlabels,
                 title=title,
                 bins=bins,
                 outfile=outfile,

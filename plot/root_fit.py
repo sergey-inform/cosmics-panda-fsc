@@ -75,11 +75,15 @@ def root_fit(data, labels, title=None, outfile=None, bins=None, histopts={}, gui
         ## Fit the histogram
         fitfunc, fitres = langaus_fit(hist)
         
+       
+    
+        print 'RESULT {} {} MPL={:.2f} chi2={:.2f} ndf={}'.format(title, label, fitres.Parameter(1), fitres.Chi2(), fitres.Ndf() ) # TODO: error
         if not quiet:
             fitres.Print()
-    
-        print 'val= %f' % fitres.Parameter(1) # TODO: error
-        print 'prob=%.2f' % fitres.Prob()
+            print "----"
+        
+        
+        #~ print 'prob=%.2f' % fitres.Prob()
 
         ## Plot the histogram (and the fit)
         if gui:
@@ -144,7 +148,7 @@ def langaus_fit(hist, fix_parameters=[]):
         # Fix maximum (without noize)
         hist.SetMaximum(max_y * 1.5)
     
-    print 'initial_params', initial_langaus_params, initial_noize_params
+    #~ print 'initial_params', initial_langaus_params, initial_noize_params
      
     fitXmax = hist_Xmax
     # Set fitXmin as a middle between minimum and threshold    
@@ -154,12 +158,15 @@ def langaus_fit(hist, fix_parameters=[]):
     else:
         min_val = threshold
     
-    if min_val > threshold:
+    if min_val >= threshold:
         fitXmin = (min_val + threshold) / 2
+        #~ fitXmin = max_x/2
     else:
         fitXmin = threshold
-
-    print '\nFIT RANGE',  fitXmin, fitXmax
+    
+    fitXmin = threshold
+    
+    #~ print '\nFIT RANGE',  fitXmin, fitXmax
     
     fitfunc = TF1( 'fitfunc', 'langaufun(&x,[0],[1],[2],[3]) + 0.001*[4]*exp(-0.001*[5]*x)', fitXmin, fitXmax )
     fitfunc.SetParNames ('Langaus Width Landau','Langaus MPL','Langaus Area','Langaus Width Gauss','expA','expB')
@@ -220,7 +227,7 @@ def window_extrema(yvals, nmins=1, nmax=2):
     """ Find so many local extrema (maxima and minima).
     """
     nvals = len(yvals)
-    maxwindow = int(nvals**0.5) 
+    maxwindow = 2*int(nvals**0.5) 
     maxloc, minloc = [], []
     
     for window in range(1, maxwindow+1):
