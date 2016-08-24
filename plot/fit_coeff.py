@@ -74,15 +74,51 @@ def main():
             
         data[chan][run][trig] = mpl
         
+    def nsort(dic):
+        for key in sorted(dic, key=natural_keys):
+            yield (key, dic[key])
     
-        
-    print sorted(data.keys(), key=natural_keys):
-        
-        
     
-    #read file data for this triggers
-    #calculate and print the values for each channel and run:
-    #  chan:  run1 run2 ...
+    ## Calculate values
+    values = {}
+    for chan, cdata in nsort(data):
+        for run, rdata in nsort(cdata):
+            if len(rdata) < 2: 
+                continue
+            valA = float(rdata[trigs[0]])
+            valB = float(rdata[trigs[1]])
+            if valB != 0:
+                val = 1.0 * valA / valB
+            else:
+                val = None
+    
+            if chan not in values:
+                values[chan] = []
+                
+            values[chan].append((run, val))
+    
+    if not args.table:
+        for chan, cvals in nsort(values):
+            for run, val in cvals:
+                print "{} {} {:.4}".format( chan, run, val)
+    else:
+        runs = set([ rvals[0] for cvals in values.values() for rvals in cvals])
+        runs = [_ for _ in sorted(runs, key=natural_keys)]
+        print "runs:\t{}".format("\t".join(runs))
+        
+        for chan, cvals in nsort(values):
+            sys.stdout.write("{}".format(chan))
+            dvals = dict(cvals)
+            
+            for run in runs:
+                if run in dvals:
+                    sys.stdout.write( "\t{:.4}".format(dvals[run]))
+                else:
+                    sys.stdout.write( "\t-")
+            
+            sys.stdout.write("\n")
+                
+                
     
  
 if __name__ == "__main__":
