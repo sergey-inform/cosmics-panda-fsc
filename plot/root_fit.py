@@ -47,9 +47,9 @@ def root_fit(data, labels, title=None, outfile=None, bins=None, histopts={}, gui
         
         if not single:
             gStyle.SetOptStat(0)  # Hide statistics
-
-    if hasattr(histopts, 'range'):
-        range_ = histopts.range
+    
+    if 'range' in histopts:
+        range_ = histopts['range']
     else:
         range_ = DEFAULT_HIST_RANGE
     
@@ -77,7 +77,9 @@ def root_fit(data, labels, title=None, outfile=None, bins=None, histopts={}, gui
         
        
     
+        #~ print 'RESULT {} {} MPL={:.2f} chi2={:.2f} ndf={}'.format(title, label, fitres.Parameter(1), fitres.Chi2(), fitres.Ndf() ) # TODO: error
         print 'RESULT {} {} MPL={:.2f} chi2={:.2f} ndf={}'.format(title, label, fitres.Parameter(1), fitres.Chi2(), fitres.Ndf() ) # TODO: error
+        
         if not quiet:
             fitres.Print()
             print "----"
@@ -148,7 +150,7 @@ def langaus_fit(hist, fix_parameters=[]):
         # Fix maximum (without noize)
         hist.SetMaximum(max_y * 1.5)
     
-    #~ print 'initial_params', initial_langaus_params, initial_noize_params
+    print 'initial_params', initial_langaus_params, initial_noize_params
      
     fitXmax = hist_Xmax
     # Set fitXmin as a middle between minimum and threshold    
@@ -159,14 +161,14 @@ def langaus_fit(hist, fix_parameters=[]):
         min_val = threshold
     
     if min_val >= threshold:
-        fitXmin = (min_val + threshold) / 2
-        #~ fitXmin = max_x/2
+        #~ fitXmin = (min_val + threshold) / 2
+        fitXmin = max_x/2
     else:
         fitXmin = threshold
     
-    fitXmin = threshold
+    #~ fitXmin = threshold
     
-    #~ print '\nFIT RANGE',  fitXmin, fitXmax
+    print '\nFIT RANGE',  fitXmin, fitXmax
     
     fitfunc = TF1( 'fitfunc', 'langaufun(&x,[0],[1],[2],[3]) + 0.001*[4]*exp(-0.001*[5]*x)', fitXmin, fitXmax )
     fitfunc.SetParNames ('Langaus Width Landau','Langaus MPL','Langaus Area','Langaus Width Gauss','expA','expB')
@@ -263,9 +265,16 @@ def guess_threshold_bin(xvals, yvals):
 def guess_noize_params(xvals, yvals):
     
     #FIXME
+    
+    #NEW
+    #~ return [50.0,  # expA
+            #~ 2.0,  # expB
+        #~ ]
+    
+    #DEC
     return [50.0,  # expA
-            2.0,  # expB
-        ]
+        0.4,  # expB
+    ]
 
 
 def accumulate(vals):
@@ -286,11 +295,18 @@ def guess_langaus_params(xvals, yvals):
             break
     
     
-    return [100.0,  # Width Landau
-            mpl,  # MPL
-            10.0,  # Area
-            30.0,  # Width Gauss (set smaller than WidthLandau)
-        ]
+    #~ return [100.0,  # Width Landau
+            #~ mpl,  # MPL
+            #~ 10.0,  # Area
+            #~ 30.0,  # Width Gauss (set smaller than WidthLandau)
+        #~ ]
+        
+    #DEC
+    return [50.0,  # Width Landau
+        mpl,  # MPL
+        20.0,  # Area
+        400.0,  # Width Gauss (set smaller than WidthLandau)
+    ]
 
 def root_refit_avg():
     """ Fit again, but average and fix common parameters. """
