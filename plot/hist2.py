@@ -297,7 +297,7 @@ def main():
                 quiet=args.quiet,
                 gui=args.root_gui,
                 )
-            
+                
         else:
             # plot the data
             plot( data[chan], shortlabels,

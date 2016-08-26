@@ -8,7 +8,7 @@ License: GPLv2
 """
 import sys
 import os
-from ROOT import TH1F, TF1, TCanvas, TLegend, gROOT, gStyle, TGraph
+from ROOT import TH1F, TF1, TCanvas, TLegend, gROOT, gStyle, TGraph, TKDE
 from rootpy.interactive import wait
 from itertools import cycle 
 import numpy as np
@@ -28,15 +28,24 @@ import rootpy.compiled as C
 pwd = os.path.dirname(__file__)
 C.register_file( pwd + "/mylangaus.cxx", ["langaufun"])
 
-    
-def root_fit(data, labels, title=None, outfile=None, bins=None, histopts={}, gui=True, quiet=False):
-    
-    single = False  # Only one histogram given
-    
-    if sum(x is not None for x in data) == 1:  # a number of not empty sets
-        single = True
+
+#TODO: use KDE for smoothing histograms https://root.cern.ch/root/html/tutorials/math/exampleTKDE.C.html
+
+
+
+#TODO: rename to rootfit_langaus
+def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={}, gui=True, quiet=False):
+    """
+    Main fit function.
+    Fit data, draw a plot with histograms and fit-functions.
+    Print fit results.
+    """
+    if sum(x is not None for x in datasets) == 1:  # a number of not empty sets
+        single = True  # Only one histogram given
+    else:
+        single = False  
         
-    if len(labels) != len(data):
+    if len(labels) != len(datasets):
         raise ValueError("the number of labels doesn't match the number of datasets.")
     
     if gui:
@@ -48,59 +57,62 @@ def root_fit(data, labels, title=None, outfile=None, bins=None, histopts={}, gui
         if not single:
             gStyle.SetOptStat(0)  # Hide statistics
     
+    ## Set Range
     if 'range' in histopts:
         range_ = histopts['range']
     else:
         range_ = DEFAULT_HIST_RANGE
     
+    ## Bin count
     if not bins:
         bins = DEFAULT_BINS_NUMBER
     
-    for idx, data in enumerate(data):
+    for idx, data in enumerate(datasets):
     
         if data is None:
             continue
         
         label = labels[idx]
-        
-        # Histogram data
+
+        ## Histogram the data
         hist = TH1F("hist" + str(idx) ,"myhist" + str(idx), bins, range_[0], range_[1])
         [hist.Fill(_) for _ in data]
         
-        # Normalize the histogram
+        ## Normalize the histogram
         integral = hist.Integral()
         if integral > 0:
             hist.Scale(1/integral) 
-        
-        ## Fit the histogram
-        fitfunc, fitres = langaus_fit(hist)
-        
-       
-    
-        #~ print 'RESULT {} {} MPL={:.2f} chi2={:.2f} ndf={}'.format(title, label, fitres.Parameter(1), fitres.Chi2(), fitres.Ndf() ) # TODO: error
-        print 'RESULT {} {} MPL={:.2f} chi2={:.2f} ndf={}'.format(title, label, fitres.Parameter(1), fitres.Chi2(), fitres.Ndf() ) # TODO: error
-        
-        if not quiet:
-            fitres.Print()
-            print "----"
-        
-        
-        #~ print 'prob=%.2f' % fitres.Prob()
 
-        ## Plot the histogram (and the fit)
+        ## Plot the histogram
         if gui:
-            color = next(colors)
-            hist.SetLineColor(color);
-            fitfunc.SetLineColor(color);
+            hist_color = next(colors)
+            hist.SetLineColor(hist_color);
             
             if idx == 0:
                 hist.Draw('HIST')
             else:
                 hist.Draw('HIST SAMES')
 
-            fitfunc.Draw('SAME')
             legend.AddEntry(hist, label, "f")   
 
+        ## Fit the histogram
+        maxloc, minloc= hist_extrema(hist, nminima=1, nmaxima=2)
+        fitrange, initial_params = guess_langaus_fit_params(hist, maxloc, minloc)
+        
+        print "FITRANGE {} INITIAL {}".format(fitrange, initial_params)
+        fitfunc, fitres = langaus_fit(hist, fitrange, initial_params)
+        
+        #~ print 'RESULT {} {} MPL={:.2f} chi2={:.2f} ndf={}'.format(title, label, fitres.Parameter(1), fitres.Chi2(), fitres.Ndf() ) # TODO: error
+        
+        if not quiet:
+            fitres.Print()
+            print "----"
+        
+        ## Plot the fit
+        if gui:
+            fitfunc.SetLineColor(hist_color);
+            fitfunc.Draw('SAME')
+        
     #TODO: Fit Precise (with fixed parameters)
 
     if gui:
@@ -116,89 +128,117 @@ def root_fit(data, labels, title=None, outfile=None, bins=None, histopts={}, gui
         #~ c1.Print("c1.pdf", "pdf");
 
 
-def langaus_fit(hist, fix_parameters=[]):
+def hist_extrema(hist, nminima, nmaxima, smooth_max=100, smooth_step=1):
+    """ Smooth the copy of the histogram and
+        find so many local extrema (maxima and minima).
+        
+        hist: ROOT TH1 object
+        nminima: expected number of minima
+        nmaxima: expected number of maxima
+    """
+    shist = hist.Clone()
+    
+    for n in range(0, smooth_max +1, smooth_step):
+        if n:
+            shist.Smooth()
+        
+        x, y = hist_to_xy(shist)
+
+        maxn, minn, maxloc, minloc = extrema(np.array(y))
+        #TODO: if not quiet or if verbose:
+        print 'SMOOTH', n, maxn, minn, maxloc, minloc
+        
+        if nminima >= minn or nmaxima >= maxn:
+            break
+        
+    return maxloc, minloc
+    
+    
+    
+def langaus_fit(hist, fitrange, parameters, fix_parameters=[]):
     """ Fit a ROOT TH1 with langauss + exponential noize. 
     
         Return the fit function and a fit result object.
     """
-    
-    xaxis = hist.GetXaxis()
-    hist_Xmin, hist_Xmax = xaxis.GetXmin(), xaxis.GetXmax()
+    fitXmin = fitrange[0]
+    fitXmax = fitrange[1]
 
-    langaufun = TF1( 'langaufun', C.langaufun, hist_Xmin, hist_Xmax )
+    langaufun = TF1( 'langaufun', C.langaufun, fitXmin, fitXmax )
     
     # Smooth the histogram.
-    smooth_xy = maw_hist(hist)
-    
-    initial_langaus_params = guess_langaus_params(*smooth_xy)
-    initial_noize_params = guess_noize_params(*smooth_xy)
-    threshold = guess_threshold_bin(*smooth_xy)
-    
-    
+    #~ x, y = hist_to_xy(hist)
+    #~ initial_langaus_params = guess_langaus_params()
+    #~ initial_noize_params = guess_noize_params()
+    #~ threshold = guess_threshold_bin(x, y)
     
     
     # Check a number of minima and maxima in the histogram
-    histvals = [ hist.GetBinContent(n) for n in range(1,hist.GetSize()-1) ]
-    max_loc, min_loc = window_extrema(histvals, nmax=2, nmins=1) # looking for one minimum and one or two maximums
-    
-    if max_loc:
-        max_idx = max_loc[-1]  # the last element
-        max_x, max_y = hist.GetBinCenter(max_idx), hist.GetBinContent(max_idx)
-        
-        initial_langaus_params[1] = max_x
-        
-        # Fix maximum (without noize)
-        hist.SetMaximum(max_y * 1.5)
-    
-    print 'initial_params', initial_langaus_params, initial_noize_params
-     
-    fitXmax = hist_Xmax
-    # Set fitXmin as a middle between minimum and threshold    
-    
-    if min_loc:
-        min_val = hist.GetBinCenter(min_loc[0])
-    else:
-        min_val = threshold
-    
-    if min_val >= threshold:
+    #~ histvals = [ hist.GetBinContent(n) for n in range(1,hist.GetSize()-1) ]
+    #~ max_loc, min_loc = window_extrema(histvals, nmax=2, nmins=1) # looking for one minimum and one or two maximums
+    #~ 
+    #~ if max_loc:
+        #~ max_idx = max_loc[-1]  # the last element
+        #~ max_x, max_y = hist.GetBinCenter(max_idx), hist.GetBinContent(max_idx)
+        #~ 
+        #~ initial_langaus_params[1] = max_x
+        #~ 
+        #~ # Fix maximum (without noize)
+        #~ hist.SetMaximum(max_y * 1.5)
+    #~ 
+    #~ print 'initial_params', initial_langaus_params, initial_noize_params
+     #~ 
+    #~ fitXmax = hist_Xmax
+    #~ # Set fitXmin as a middle between minimum and threshold    
+    #~ 
+    #~ if min_loc:
+        #~ min_val = hist.GetBinCenter(min_loc[0])
+    #~ else:
+        #~ min_val = threshold
+    #~ 
+    #~ if min_val >= threshold:
         #~ fitXmin = (min_val + threshold) / 2
-        fitXmin = max_x/2
-    else:
-        fitXmin = threshold
-    
+        #~ fitXmin = max_x/2
+    #~ else:
+        #~ fitXmin = threshold
+    #~ 
     #~ fitXmin = threshold
+    #~ 
+    #~ print '\nFIT RANGE',  fitXmin, fitXmax
     
-    print '\nFIT RANGE',  fitXmin, fitXmax
+    
     
     fitfunc = TF1( 'fitfunc', 'langaufun(&x,[0],[1],[2],[3]) + 0.001*[4]*exp(-0.001*[5]*x)', fitXmin, fitXmax )
     fitfunc.SetParNames ('Langaus Width Landau','Langaus MPL','Langaus Area','Langaus Width Gauss','expA','expB')
-    fitfunc.SetParameters(*(initial_langaus_params + initial_noize_params))
+    fitfunc.SetParameters(*parameters)
 
     #TODO: fixed parameters
 
     # SQMRN = S(ave fitres), Quiet, More (improve results), Range (of the function), No (drawing)
     fitres = hist.Fit(fitfunc, "SQMRN+" )
     return fitfunc, fitres
-
-
+    
+    
 # DELME
     #~ print 'nbins', hist.GetSize()  # Nbins + Underflow + Overflow
     #~ print 'integral', hist.Integral(0,20)
     #~ print 'max', hist.GetMaximumBin()
     #~ print 'values', [round(hist.GetBinContent(n)*100, 2) for n in range(1, hist.GetSize()-1)]
-
-def maw_hist(hist, window = 3):
+    
+    
+    
+def hist_to_xy(hist):
+    """ Get x,y values from ROOT histogram object.
+    """
     nbins = hist.GetSize() # Underflow + Nbins + Overflow
     values = [ hist.GetBinContent(n) for n in range(1,nbins-1) ]
-    avg_values = movingaverage(values, 3)
     x, y = [], []
-    
-    for idx, val in enumerate(avg_values):
+
+    for idx, val in enumerate(values):
         x.append(hist.GetBinCenter(idx+1))
         y.append(val)
-        
-    return x,y
     
+    return x,y
+
 
 def extrema(arr):
     """ Find all entries in the 1d array smaller and higher than their neighbors.
@@ -225,27 +265,42 @@ def extrema(arr):
     return maxima_num, minima_num, max_loc, min_loc
 
 
-def window_extrema(yvals, nmins=1, nmax=2):
-    """ Find so many local extrema (maxima and minima).
-    """
-    nvals = len(yvals)
-    maxwindow = 2*int(nvals**0.5) 
-    maxloc, minloc = [], []
+def guess_langaus_fit_params(hist, maxloc, minloc):
     
-    for window in range(1, maxwindow+1):
-        smooth_vals = movingaverage(yvals, window)
-        maxn, minn, maxloc, minloc = extrema(np.array(smooth_vals))
-        
-        print window, maxn, minn, maxloc, minloc
-        
-        if nmins >= minn and nmax >= maxn:
-            break
-        
-    return maxloc, minloc
+    x,y = hist_to_xy(hist)
+    threshold = guess_threshold_bin(x, y)
     
+    if minloc:
+        firstmin = hist.GetBinCenter(minloc[0])
+    else:
+        firstmin = threshold
     
+    firstmax = hist.GetBinCenter(maxloc[0])
     
+    xaxis = hist.GetXaxis()
+    histXmin, histXmax = xaxis.GetXmin(), xaxis.GetXmax()
     
+    fitstart = (threshold + firstmin*2)/3
+    fitrange = (fitstart, histXmax)
+    
+        # MPL
+    #~ halfsum = sum(yvals)/2
+    #~ for idx, val in enumerate(accumulate(yvals)):
+        #~ mpl = xvals[idx]
+        #~ if val > halfsum:
+            #~ break
+    
+    params = [
+        400.0,  # Width Landau
+        firstmax,  # MPL
+        20.0,  # Area
+        100.0,  # Width Gauss (set smaller than WidthLandau)
+        50.0,  # expA
+        0.4,  # expB
+        ]
+    
+    return fitrange, params
+
 def guess_threshold_bin(xvals, yvals):
     """ Guess histogram threshold (the left edge).
         Return a center of the threshold bin.
@@ -262,55 +317,13 @@ def guess_threshold_bin(xvals, yvals):
         prev_y = y
 
 
-def guess_noize_params(xvals, yvals):
-    
-    #FIXME
-    
-    #NEW
-    #~ return [50.0,  # expA
-            #~ 2.0,  # expB
-        #~ ]
-    
-    #DEC
-    return [50.0,  # expA
-        0.4,  # expB
-    ]
+#~ 
+#~ def accumulate(vals):
+    #~ total = 0
+    #~ for x in vals:
+        #~ total += x
+        #~ yield total
 
-
-def accumulate(vals):
-    total = 0
-    for x in vals:
-        total += x
-        yield total
-
-def guess_langaus_params(xvals, yvals):
-    
-    #FIXME
-    
-    # MPL
-    halfsum = sum(yvals)/2
-    for idx, val in enumerate(accumulate(yvals)):
-        mpl = xvals[idx]
-        if val > halfsum:
-            break
-    
-    
-    #~ return [100.0,  # Width Landau
-            #~ mpl,  # MPL
-            #~ 10.0,  # Area
-            #~ 30.0,  # Width Gauss (set smaller than WidthLandau)
-        #~ ]
-        
-    #DEC
-    return [50.0,  # Width Landau
-        mpl,  # MPL
-        20.0,  # Area
-        400.0,  # Width Gauss (set smaller than WidthLandau)
-    ]
-
-def root_refit_avg():
-    """ Fit again, but average and fix common parameters. """
-    pass
 
 if __name__ == "__main__":
     main()
