@@ -71,6 +71,10 @@ def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={},
     
         if data is None:
             continue
+            
+        median = np.median(data)
+        if median * 3 < range_[1]:
+            range_ = range_[0], median * 2
         
         label = labels[idx]
 
@@ -96,7 +100,7 @@ def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={},
             legend.AddEntry(hist, label, "f")   
 
         ## Fit the histogram
-        maxloc, minloc= hist_extrema(hist, nminima=1, nmaxima=2)
+        maxloc, minloc, shist= hist_extrema(hist, nminima=1, nmaxima=2)
         fitrange, initial_params = guess_langaus_fit_params(hist, maxloc, minloc)
         
         print "FITRANGE {} INITIAL {}".format(fitrange, initial_params)
@@ -112,6 +116,7 @@ def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={},
         if gui:
             fitfunc.SetLineColor(hist_color);
             fitfunc.Draw('SAME')
+        shist.Draw('SAME')
         
     #TODO: Fit Precise (with fixed parameters)
 
@@ -148,10 +153,10 @@ def hist_extrema(hist, nminima, nmaxima, smooth_max=100, smooth_step=1):
         #TODO: if not quiet or if verbose:
         print 'SMOOTH', n, maxn, minn, maxloc, minloc
         
-        if nminima >= minn or nmaxima >= maxn:
+        if nminima >= minn and nmaxima >= maxn:
             break
         
-    return maxloc, minloc
+    return maxloc, minloc, shist
     
     
     
@@ -275,7 +280,10 @@ def guess_langaus_fit_params(hist, maxloc, minloc):
     else:
         firstmin = threshold
     
-    firstmax = hist.GetBinCenter(maxloc[0])
+    if maxloc:
+        firstmax = hist.GetBinCenter(maxloc[0])
+    else:
+        firstmax = 0
     
     xaxis = hist.GetXaxis()
     histXmin, histXmax = xaxis.GetXmin(), xaxis.GetXmax()
@@ -289,6 +297,9 @@ def guess_langaus_fit_params(hist, maxloc, minloc):
         #~ mpl = xvals[idx]
         #~ if val > halfsum:
             #~ break
+    
+    #MPL
+     
     
     params = [
         400.0,  # Width Landau
