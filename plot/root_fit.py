@@ -9,6 +9,9 @@ License: GPLv2
 import sys
 import os
 from ROOT import TH1F, TF1, TCanvas, TLegend, gROOT, gStyle, TGraph, TKDE
+from ROOT.Math import WrappedTF1
+from ROOT.Math import BrentRootFinder
+
 from rootpy.interactive import wait
 from itertools import cycle 
 import numpy as np
@@ -88,35 +91,38 @@ def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={},
             hist.Scale(1/integral) 
 
         ## Plot the histogram
-        if gui:
-            hist_color = next(colors)
-            hist.SetLineColor(hist_color);
+        #~ if gui:
+            #~ hist_color = next(colors)
+            #~ hist.SetLineColor(hist_color);
             
-            if idx == 0:
-                hist.Draw('HIST')
-            else:
-                hist.Draw('HIST SAMES')
+            #~ if idx == 0:
+                #~ hist.Draw('HIST')
+            #~ else:
+                #~ hist.Draw('HIST SAMES')
 
-            legend.AddEntry(hist, label, "f")   
+            #~ legend.AddEntry(hist, label, "f")   
 
         ## Fit the histogram
-        maxloc, minloc, shist= hist_extrema(hist, nminima=1, nmaxima=2)
-        fitrange, initial_params = guess_langaus_fit_params(hist, maxloc, minloc)
-        
-        print "FITRANGE {} INITIAL {}".format(fitrange, initial_params)
-        fitfunc, fitres = langaus_fit(hist, fitrange, initial_params)
+        maxloc, minloc, shist= extrema_kde(data, range_, nminima=1, nmaxima=2)
+        #~ fitrange, initial_params = guess_langaus_fit_params(hist, maxloc, minloc)
+        #~ print "FITRANGE {} INITIAL {}".format(fitrange, initial_params)
+       
+        #~ fitfunc, fitres = langaus_fit(hist, fitrange, initial_params)
         
         #~ print 'RESULT {} {} MPL={:.2f} chi2={:.2f} ndf={}'.format(title, label, fitres.Parameter(1), fitres.Chi2(), fitres.Ndf() ) # TODO: error
         
-        if not quiet:
-            fitres.Print()
-            print "----"
+        #~ if not quiet:
+            #~ fitres.Print()
+            #~ print "----"
+        print "----"
         
         ## Plot the fit
-        if gui:
-            fitfunc.SetLineColor(hist_color);
-            fitfunc.Draw('SAME')
-        shist.Draw('SAME')
+        #~ if gui:
+            #~ fitfunc.SetLineColor(hist_color);
+            #~ fitfunc.Draw('SAME')
+        shist.Draw()
+        shist.DrawDerivative('SAME')
+        #~ shist.Draw('SAME')
         
     #TODO: Fit Precise (with fixed parameters)
 
@@ -133,7 +139,7 @@ def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={},
         #~ c1.Print("c1.pdf", "pdf");
 
 
-def hist_extrema(hist, nminima, nmaxima, smooth_max=100, smooth_step=1):
+def hist_extrema_smooth(hist, nminima, nmaxima, smooth_max=100, smooth_step=1):
     """ Smooth the copy of the histogram and
         find so many local extrema (maxima and minima).
         
@@ -155,8 +161,31 @@ def hist_extrema(hist, nminima, nmaxima, smooth_max=100, smooth_step=1):
         
         if nminima >= minn and nmaxima >= maxn:
             break
-        
+    
     return maxloc, minloc, shist
+    
+def extrema_kde(data, range_, nminima, nmaxima, smooth_max=100, smooth_step=1):
+    """ Smooth the data with Kernel Density Estimation and
+        find so many local extrema (maxima and minima).
+        
+        hist: ROOT TH1 object
+        nminima: expected number of minima
+        nmaxima: expected number of maxima
+    """
+    n = len(data)
+    
+    rho = 0.7
+    kde = TKDE(n, data, range_[0], range_[1], "", rho)
+    func = kde.GetFunction(1000)
+    
+    # Find roots
+    #~ wfunc = WrappedTF1(func)
+    #~ rootfi = BrentRootFinder()
+    #~ rootfi.SetFunction(wfunc, range_[0], range_[1])
+    #~ rootfi.Solve()
+    
+    #~ print rootfi.Root()
+    return 0, 0, func
     
     
     
