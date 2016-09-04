@@ -43,11 +43,13 @@ max_x = bin_centres[max_index]
 #~ print 'max_x', max_x
 
 # Filter the histogram 
-bin_width = bin_cnt - max_index
-bin_left = max_index - bin_width
-hist2 = hist[bin_left: bin_cnt]
-bin_centres2 = bin_centres[bin_left: bin_cnt]
-bin_edges2 = bin_edges[bin_left: bin_cnt]
+#~ bin_width = bin_cnt - max_index
+#~ bin_left = max_index - bin_width
+#~ hist2 = hist[bin_left: bin_cnt]
+#~ bin_centres2 = bin_centres[bin_left: bin_cnt]
+#~ bin_edges2 = bin_edges[bin_left: bin_cnt]
+
+bin_edges2, bin_centres2, hist2 = bin_edges, bin_centres, hist
 
 def gauss(x, *p):
     A, mu, sigma = p
