@@ -56,9 +56,10 @@ def main():
         if line[0] == "#":
             #skip comments
             continue
-            
+        
+	'\t'.join(line.split()) # replace spaces with tabs
         try:
-            chan, run, trig, mpl, chi2, ndf = line.split()
+            chan, run, trig, mpl, std, chi2_ndf = line.split('\t')
         except ValueError as e:
             sys.stderr.write("Wrong line #{}: {}\n".format(line_count, str(e)))
             exit(1)
