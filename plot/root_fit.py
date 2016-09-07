@@ -34,8 +34,6 @@ C.register_file( pwd + "/mylangaus.cxx", ["langaufun"])
 
 #TODO: use KDE for smoothing histograms https://root.cern.ch/root/html/tutorials/math/exampleTKDE.C.html
 
-
-
 #TODO: rename to rootfit_langaus
 def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={}, gui=True, quiet=False):
     """
@@ -76,8 +74,8 @@ def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={},
             continue
             
         median = np.median(data)
-        if median * 3 < range_[1]:
-            range_ = range_[0], median * 2
+            #~ if median * 3 < range_[1]:
+                #~ range_ = range_[0], median * 2
         
         label = labels[idx]
 
@@ -91,38 +89,45 @@ def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={},
             hist.Scale(1/integral) 
 
         ## Plot the histogram
-        #~ if gui:
-            #~ hist_color = next(colors)
-            #~ hist.SetLineColor(hist_color);
+        if gui:
+            hist_color = next(colors)
+            hist.SetLineColor(hist_color);
             
-            #~ if idx == 0:
-                #~ hist.Draw('HIST')
-            #~ else:
-                #~ hist.Draw('HIST SAMES')
+            if idx == 0:
+                hist.Draw('HIST')
+            else:
+                hist.Draw('HIST SAMES')
 
-            #~ legend.AddEntry(hist, label, "f")   
+            legend.AddEntry(hist, label, "f")   
 
         ## Fit the histogram
-        maxloc, minloc, shist= extrema_kde(data, range_, nminima=1, nmaxima=2)
-        #~ fitrange, initial_params = guess_langaus_fit_params(hist, maxloc, minloc)
-        #~ print "FITRANGE {} INITIAL {}".format(fitrange, initial_params)
+        xaxis = hist.GetXaxis()
+        
+        maxima, minima = maxmin_smooth(data, range_, nminima=1, nmaxima=2)
+        
+        fitrange = guess_cosmics_fitrange(range_, maxima, minima)
+        
+        #TODO: FAST AND WRONG
+        if len(maxima) < 2:
+            fitrange = guess_threshold_bin(*hist_to_xy(hist)), fitrange[1]
+            
+        initial_params = guess_cosmics_fitparams(hist, maxima, minima)
+        
+        print "MINIMA {} MAXIMA {}".format(minima, maxima)
+        print "FITRANGE {} INITIAL {}".format(fitrange, initial_params)
        
-        #~ fitfunc, fitres = langaus_fit(hist, fitrange, initial_params)
+        fitfunc, fitres = langaus_fit(hist, fitrange, initial_params)
         
-        #~ print 'RESULT {} {} MPL={:.2f} chi2={:.2f} ndf={}'.format(title, label, fitres.Parameter(1), fitres.Chi2(), fitres.Ndf() ) # TODO: error
+        print 'RESULT {} {} MPL={:.2f} +- {:.2f} chi2/ndf={:.2f}'.format(title, label, fitres.Parameter(1), fitres.ParError(1), fitres.Chi2()/fitres.Ndf() ) # TODO: error
         
-        #~ if not quiet:
-            #~ fitres.Print()
-            #~ print "----"
+        if not quiet:
+            fitres.Print()
         print "----"
         
         ## Plot the fit
-        #~ if gui:
-            #~ fitfunc.SetLineColor(hist_color);
-            #~ fitfunc.Draw('SAME')
-        shist.Draw()
-        shist.DrawDerivative('SAME')
-        #~ shist.Draw('SAME')
+        if gui:
+            fitfunc.SetLineColor(hist_color);
+            fitfunc.Draw('SAME')
         
     #TODO: Fit Precise (with fixed parameters)
 
@@ -137,7 +142,6 @@ def root_fit(datasets, labels, title=None, outfile=None, bins=None, histopts={},
         pass
         #~ c1.SaveAs?
         #~ c1.Print("c1.pdf", "pdf");
-
 
 def hist_extrema_smooth(hist, nminima, nmaxima, smooth_max=100, smooth_step=1):
     """ Smooth the copy of the histogram and
@@ -164,30 +168,68 @@ def hist_extrema_smooth(hist, nminima, nmaxima, smooth_max=100, smooth_step=1):
     
     return maxloc, minloc, shist
     
-def extrema_kde(data, range_, nminima, nmaxima, smooth_max=100, smooth_step=1):
+    
+#peakdetect soluthons:
+# https://gist.github.com/sixtenbe/1178136
+# https://blog.ytotech.com/2015/11/01/findpeaks-in-python/
+# https://gist.github.com/endolith/250860 (matlab script converted)
+    
+def maxmin_smooth(data, range_, nminima, nmaxima):
     """ Smooth the data with Kernel Density Estimation and
         find so many local extrema (maxima and minima).
-        
-        hist: ROOT TH1 object
-        nminima: expected number of minima
-        nmaxima: expected number of maxima
     """
+    # Increase factor value (smooth harder)
+    # until get desired number of max and min points.
+    
+    factors = np.linspace(0.05,0.09,40,endpoint=True)
+    
+    for factor in factors:
+        
+        maxima, minima = maxmin_kde(data, range_, factor)
+        
+        print 'FACTOR', factor, maxima, minima
+        
+        if len(maxima) <= nmaxima and len(minima) <= nminima:
+            break
+    
+    return maxima, minima
+    
+def maxmin_kde(data, range_, factor=0.05):
+    """ find minima and maxima of probability density
+    """
+    from scipy.stats import gaussian_kde
+    from scipy.signal import argrelmax, argrelmin
+    
     n = len(data)
     
-    rho = 0.7
-    kde = TKDE(n, data, range_[0], range_[1], "", rho)
-    func = kde.GetFunction(1000)
+    # Get probability density (a smooth function)
+    kernel = gaussian_kde(data, bw_method=factor)
     
-    # Find roots
-    #~ wfunc = WrappedTF1(func)
-    #~ rootfi = BrentRootFinder()
-    #~ rootfi.SetFunction(wfunc, range_[0], range_[1])
-    #~ rootfi.Solve()
+    r_left = range_[0]
+    r_right = range_[1]
+    r_step = (r_right-r_left)/1000
+   
+    positions = np.arange(r_left,r_right,r_step)
+    kde_values = kernel(positions)
+
+    maxima = argrelmax(kde_values)[0].tolist()
+    minima = argrelmin(kde_values)[0].tolist()
     
-    #~ print rootfi.Root()
-    return 0, 0, func
+    vmaxima = [positions[_] for _ in maxima]
+    vminima = [positions[_] for _ in minima]
     
     
+    
+    #~ # plot the thing for debug
+    #~ import matplotlib.pyplot as plt
+    #~ plt.plot(positions, kde_values)
+    #~ for m in vmaxima:
+        #~ plt.axvline(m, color='red')
+    #~ for m in vminima:
+        #~ plt.axvline(m)
+    #~ plt.show()
+    
+    return vmaxima, vminima
     
 def langaus_fit(hist, fitrange, parameters, fix_parameters=[]):
     """ Fit a ROOT TH1 with langauss + exponential noize. 
@@ -199,66 +241,15 @@ def langaus_fit(hist, fitrange, parameters, fix_parameters=[]):
 
     langaufun = TF1( 'langaufun', C.langaufun, fitXmin, fitXmax )
     
-    # Smooth the histogram.
-    #~ x, y = hist_to_xy(hist)
-    #~ initial_langaus_params = guess_langaus_params()
-    #~ initial_noize_params = guess_noize_params()
-    #~ threshold = guess_threshold_bin(x, y)
-    
-    
-    # Check a number of minima and maxima in the histogram
-    #~ histvals = [ hist.GetBinContent(n) for n in range(1,hist.GetSize()-1) ]
-    #~ max_loc, min_loc = window_extrema(histvals, nmax=2, nmins=1) # looking for one minimum and one or two maximums
-    #~ 
-    #~ if max_loc:
-        #~ max_idx = max_loc[-1]  # the last element
-        #~ max_x, max_y = hist.GetBinCenter(max_idx), hist.GetBinContent(max_idx)
-        #~ 
-        #~ initial_langaus_params[1] = max_x
-        #~ 
-        #~ # Fix maximum (without noize)
-        #~ hist.SetMaximum(max_y * 1.5)
-    #~ 
-    #~ print 'initial_params', initial_langaus_params, initial_noize_params
-     #~ 
-    #~ fitXmax = hist_Xmax
-    #~ # Set fitXmin as a middle between minimum and threshold    
-    #~ 
-    #~ if min_loc:
-        #~ min_val = hist.GetBinCenter(min_loc[0])
-    #~ else:
-        #~ min_val = threshold
-    #~ 
-    #~ if min_val >= threshold:
-        #~ fitXmin = (min_val + threshold) / 2
-        #~ fitXmin = max_x/2
-    #~ else:
-        #~ fitXmin = threshold
-    #~ 
-    #~ fitXmin = threshold
-    #~ 
-    #~ print '\nFIT RANGE',  fitXmin, fitXmax
-    
-    
-    
-    fitfunc = TF1( 'fitfunc', 'langaufun(&x,[0],[1],[2],[3]) + 0.001*[4]*exp(-0.001*[5]*x)', fitXmin, fitXmax )
+    fitfunc = TF1( 'fitfunc', 'langaufun(&x,[0],[1],[2],[3]) + 0.001*[4]*exp(-0.0001*[5]*x)', fitXmin, fitXmax )
     fitfunc.SetParNames ('Langaus Width Landau','Langaus MPL','Langaus Area','Langaus Width Gauss','expA','expB')
     fitfunc.SetParameters(*parameters)
-
+    
     #TODO: fixed parameters
 
     # SQMRN = S(ave fitres), Quiet, More (improve results), Range (of the function), No (drawing)
     fitres = hist.Fit(fitfunc, "SQMRN+" )
     return fitfunc, fitres
-    
-    
-# DELME
-    #~ print 'nbins', hist.GetSize()  # Nbins + Underflow + Overflow
-    #~ print 'integral', hist.Integral(0,20)
-    #~ print 'max', hist.GetMaximumBin()
-    #~ print 'values', [round(hist.GetBinContent(n)*100, 2) for n in range(1, hist.GetSize()-1)]
-    
-    
     
 def hist_to_xy(hist):
     """ Get x,y values from ROOT histogram object.
@@ -272,7 +263,6 @@ def hist_to_xy(hist):
         y.append(val)
     
     return x,y
-
 
 def extrema(arr):
     """ Find all entries in the 1d array smaller and higher than their neighbors.
@@ -299,47 +289,53 @@ def extrema(arr):
     return maxima_num, minima_num, max_loc, min_loc
 
 
-def guess_langaus_fit_params(hist, maxloc, minloc):
+def guess_cosmics_fitrange(range_, maxima, minima):
+    """ Choose a range for fittig.
+    """
+    fit_left = range_[0]
+    fit_right = range_[1]
     
-    x,y = hist_to_xy(hist)
-    threshold = guess_threshold_bin(x, y)
+    nmax = len(maxima)
+    nmin = len(minima)
     
-    if minloc:
-        firstmin = hist.GetBinCenter(minloc[0])
-    else:
-        firstmin = threshold
+    if nmax == 2 and nmin == 1: # normal case
+        # start fit between minima and first maxima
+        fit_left = (minima[0] + maxima[0]) /2
+        fit_right = maxima[1] * 2
+        
+    elif nmax == 1 and nmin in (0,1): # no noize peak
+        # fit from a half of maximum
+        fitleft =  maxima[0]/2
+        fit_right = maxima[0] * 2
     
-    if maxloc:
-        firstmax = hist.GetBinCenter(maxloc[0])
-    else:
-        firstmax = 0
+    return fit_left, fit_right
+
+def guess_cosmics_fitparams(hist, maxima, minima):
+    from collections import OrderedDict
+   
+    # Defaults
+    params = OrderedDict([
+        ('wlandau', 50.0),  # Width Landau
+        ('mpl', 1000),  # MPL
+        ('area', 20),  # Area
+        ('wgauss', 50.0),  # Width Gauss (set smaller than WidthLandau)
+        ('expa', 30),  #expA
+        ('expb', 10),  # expB
+        ])
+        
+        
+    # MPL
+    nmax = len(maxima)
+    if nmax == 1:
+        params['mpl'] = maxima[0]
+    elif nmax == 2:
+        params['mpl'] = maxima[1]
     
-    xaxis = hist.GetXaxis()
-    histXmin, histXmax = xaxis.GetXmin(), xaxis.GetXmax()
     
-    fitstart = (threshold + firstmin*2)/3
-    fitrange = (fitstart, histXmax)
+    params['wlandau'] = params['mpl']/10
+    params['wgauss'] = params['wlandau']/2
     
-        # MPL
-    #~ halfsum = sum(yvals)/2
-    #~ for idx, val in enumerate(accumulate(yvals)):
-        #~ mpl = xvals[idx]
-        #~ if val > halfsum:
-            #~ break
-    
-    #MPL
-     
-    
-    params = [
-        400.0,  # Width Landau
-        firstmax,  # MPL
-        20.0,  # Area
-        100.0,  # Width Gauss (set smaller than WidthLandau)
-        50.0,  # expA
-        0.4,  # expB
-        ]
-    
-    return fitrange, params
+    return params.values()
 
 def guess_threshold_bin(xvals, yvals):
     """ Guess histogram threshold (the left edge).
@@ -355,14 +351,6 @@ def guess_threshold_bin(xvals, yvals):
             xstep = x - prev_x
             return prev_x - xstep/2
         prev_y = y
-
-
-#~ 
-#~ def accumulate(vals):
-    #~ total = 0
-    #~ for x in vals:
-        #~ total += x
-        #~ yield total
 
 
 if __name__ == "__main__":

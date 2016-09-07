@@ -49,7 +49,8 @@ def main():
     data = {}
     line_count = 0
     trigs = args.A, args.B
-     
+    allruns = set()
+    
     for line in args.infile:
         line_count += 1
         
@@ -57,12 +58,14 @@ def main():
             #skip comments
             continue
         
-	'\t'.join(line.split()) # replace spaces with tabs
+        '\t'.join(line.split())  # replace spaces with tabs
         try:
             chan, run, trig, mpl, std, chi2_ndf = line.split('\t')
         except ValueError as e:
             sys.stderr.write("Wrong line #{}: {}\n".format(line_count, str(e)))
             exit(1)
+        
+        allruns.add(run)
         
         if trig not in trigs:
             continue
@@ -102,21 +105,27 @@ def main():
         for chan, cvals in nsort(values):
             for run, val in cvals:
                 print "{} {} {:.4}".format( chan, run, val)
+
     else:
         runs = set([ rvals[0] for cvals in values.values() for rvals in cvals])
         runs = [_ for _ in sorted(runs, key=natural_keys)]
-        print "runs:\t{}".format("\t".join(runs))
+        allruns = [_ for _ in sorted(allruns, key=natural_keys)]
+       
+        #~ print "runs:\t{}".format("\t".join(runs))
+        print "ch\\run:\t{}".format("\t".join(allruns)) + "\tTrigA\tTrigB"
         
         for chan, cvals in nsort(values):
             sys.stdout.write("{}".format(chan))
             dvals = dict(cvals)
             
-            for run in runs:
+            #~ for run in runs:
+            for run in allruns:
                 if run in dvals:
                     sys.stdout.write( "\t{:.4}".format(dvals[run]))
                 else:
                     sys.stdout.write( "\t-")
             
+            sys.stdout.write("\t{}\t{}".format(*trigs))
             sys.stdout.write("\n")
                 
                 
