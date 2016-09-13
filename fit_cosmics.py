@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from scipy.stats import gaussian_kde
 from scipy.signal import argrelmax
 from scipy.optimize import fmin
-
+from util import natural_keys
 
 VALUE_COLUMN = 2  # a column number with the value 
 CHANNEL_COLUMN = 1  # a column number for channel, None if not the case
@@ -76,7 +76,14 @@ def fit_cosmics(title, cdata):
 
 	fig, ax = plt.subplots()
 
-	for name, data in cdata.items():
+	common_name = os.path.commonprefix(cdata.keys())
+	dir_len  = len(os.path.dirname(common_name))
+	common_len = max(dir_len, common_name.find('_',dir_len))
+	common_name = common_name[:common_len+1]
+
+	for name, data in sorted(cdata.items()):
+		label = name[len(common_name):]
+		label = os.path.splitext(label)[0]
 		median = np.median(data)
 		
 		hist_range = (0, median * hist_scale)
@@ -87,7 +94,7 @@ def fit_cosmics(title, cdata):
 			range = hist_range,
 			histtype = 'step',
 			normed = True,
-			label = name,
+			label = label,  # strip common part
 		)
 			
 		color = patches[0].get_edgecolor()
@@ -107,25 +114,29 @@ def fit_cosmics(title, cdata):
 		maxima_x_optim = []
 		
 		for x0 in maxima_x:
-			maxima_x_optim.append(fmin(minfunc,x0,disp=False))
+			maxima_x_optim.extend(fmin(minfunc,x0,disp=False))
 
-		maxima_str = '\t'.join(map(str, maxima_x + maxima_x_optim))
-		print 'max {} {}\t{}'.format(title, name, maxima_str)
+		print '{} {} {:.2f}'.format(title, label, maxima_x_optim[1])
 
 		plt.plot(bins, kde_vals, '-', color= color)
 
+	fig.canvas.set_window_title(common_name)
+	plt.title(title)
 	plt.legend()
 	plt.grid()
 	plt.show()
-	
+
+def nsort(dic):
+	for key in sorted(dic, key=natural_keys):
+		yield (key, dic[key])
 
 def main():
 	filenames = sys.argv[1:]
 	infiles = [open(fn, 'ro') for fn in filenames]
 	data = parse_values(infiles)
 
-	for chan, cdata in data.items():
-		title = str(chan)
+	for chan, cdata in nsort(data):
+		title = 'chan {}'.format(chan)
 		fit_cosmics(title, cdata)
 
 if __name__ == "__main__":
