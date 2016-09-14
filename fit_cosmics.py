@@ -20,6 +20,7 @@ from util import natural_keys
 VALUE_COLUMN = 2  # a column number with the value 
 CHANNEL_COLUMN = 1  # a column number for channel, None if not the case
 
+gui = False
 
 def common_start(*strings):
     """ Returns the longest common substring
@@ -73,8 +74,9 @@ def fit_cosmics(title, cdata):
 	"""
 	
 	hist_scale = 2
-
-	fig, ax = plt.subplots()
+	
+	if gui:
+		fig, ax = plt.subplots()
 
 	common_name = os.path.commonprefix(cdata.keys())
 	dir_len  = len(os.path.dirname(common_name))
@@ -116,15 +118,16 @@ def fit_cosmics(title, cdata):
 		for x0 in maxima_x:
 			maxima_x_optim.extend(fmin(minfunc,x0,disp=False))
 
-		print '{} {} {:.2f}'.format(title, label, maxima_x_optim[1])
+		print '{} {} {:.2f}'.format(title, label, maxima_x_optim[-1])
 
 		plt.plot(bins, kde_vals, '-', color= color)
 
-	fig.canvas.set_window_title(common_name)
-	plt.title(title)
-	plt.legend()
-	plt.grid()
-	plt.show()
+	if gui:
+		fig.canvas.set_window_title(common_name)
+		plt.title(title)
+		plt.legend()
+		plt.grid()
+		plt.show()
 
 def nsort(dic):
 	for key in sorted(dic, key=natural_keys):
