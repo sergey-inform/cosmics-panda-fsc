@@ -21,6 +21,7 @@ VALUE_COLUMN = 2  # a column number with the value
 CHANNEL_COLUMN = 1  # a column number for channel, None if not the case
 
 gui = False
+gui = True
 
 def common_start(*strings):
     """ Returns the longest common substring
@@ -73,8 +74,6 @@ def fit_cosmics(title, cdata):
 
 	"""
 	
-	hist_scale = 2
-	
 	if gui:
 		fig, ax = plt.subplots()
 
@@ -86,10 +85,13 @@ def fit_cosmics(title, cdata):
 	for name, data in sorted(cdata.items()):
 		label = name[len(common_name):]
 		label = os.path.splitext(label)[0]
-		median = np.median(data)
 		
-		hist_range = (0, median * hist_scale)
-		hist_bins = 50 * hist_scale  # binsize is 1% of the median 
+		median = np.median(data)
+		percentile = np.percentile(data, 85)
+		hist_scale = max( median * 2.5, percentile)
+
+		hist_range = (0, hist_scale )
+		hist_bins = 50   # binsize is 1% of the median 
 		vals, bins, patches = plt.hist(
 			data,
 			bins = hist_bins,
@@ -118,7 +120,12 @@ def fit_cosmics(title, cdata):
 		for x0 in maxima_x:
 			maxima_x_optim.extend(fmin(minfunc,x0,disp=False))
 
-		print '{} {} {:.2f}'.format(title, label, maxima_x_optim[-1])
+		if maxima_x_optim:
+			result =  "{:.2f}".format(maxima_x_optim[-1])
+		else:
+			result = "NotFound"
+
+		print '{} {} {} {}'.format(title, name, label, result)
 
 		plt.plot(bins, kde_vals, '-', color= color)
 
@@ -139,8 +146,7 @@ def main():
 	data = parse_values(infiles)
 
 	for chan, cdata in nsort(data):
-		title = 'chan {}'.format(chan)
-		fit_cosmics(title, cdata)
+		fit_cosmics(chan, cdata)
 
 if __name__ == "__main__":
 	main()
