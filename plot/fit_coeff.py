@@ -17,6 +17,13 @@ import argparse
 from util import natural_keys
 
 
+CHAN_COL = 0
+RUN_COL = 1
+TRIG_COL = 2
+MPL_COL = 3
+STD_COL = 0
+CHI2_COL = 1
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
             formatter_class=argparse.RawTextHelpFormatter)
@@ -26,7 +33,7 @@ def main():
             default=[sys.stdin],
             help='the file with results of fitting'
             )
-            
+
     parser.add_argument('A',
             type=str, 
             help='trigger A'
@@ -40,6 +47,11 @@ def main():
     parser.add_argument('-t', '--table',
             action='store_true',
             help="print as a table"
+            )
+
+    parser.add_argument('-d', '--distance',
+            type=str,
+            help="print distance"
             )
 
     args = parser.parse_args()
@@ -58,15 +70,24 @@ def main():
             #skip comments
             continue
         
-        '\t'.join(line.split())  # replace spaces with tabs
+        line = '\t'.join(line.split())  # replace spaces with tabs
         try:
-            chan, run, trig, mpl, std, chi2_ndf = line.split('\t')
-        except ValueError as e:
+            sline = line.split('\t')
+            chan = sline[CHAN_COL]
+            run = sline[RUN_COL]
+	    
+	    trig = sline[TRIG_COL]
+            mpl = sline[MPL_COL]
+            std = sline[STD_COL]
+            chi2_ndf = sline[CHI2_COL]
+
+        except IndexError as e:
+            sys.stderr.write("{} \n".format(sline))
             sys.stderr.write("Wrong line #{}: {}\n".format(line_count, str(e)))
             exit(1)
         
         allruns.add(run)
-        
+       
         if trig not in trigs:
             continue
             
@@ -77,7 +98,8 @@ def main():
             data[chan][run] = {}
             
         data[chan][run][trig] = mpl
-        
+
+
     def nsort(dic):
         for key in sorted(dic, key=natural_keys):
             yield (key, dic[key])
@@ -104,7 +126,10 @@ def main():
     if not args.table:
         for chan, cvals in nsort(values):
             for run, val in cvals:
-                print "{} {} {:.4}".format( chan, run, val)
+                if args.distance:
+                    print "{} {} {} {:.4}".format( run, chan, args.distance, val)
+                else:
+                    print "{} {} {:.4}".format( run, chan, val)
 
     else:
         runs = set([ rvals[0] for cvals in values.values() for rvals in cvals])
