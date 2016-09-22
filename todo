@@ -1,4 +1,6 @@
- * KDE smooth
-https://root.cern.ch/root/html/tutorials/math/exampleTKDE.C.html
-https://root.cern.ch/doc/master/group__RootFinders.html
-https://root.cern.ch/root-finder-algorithms
+* compare fit with kde smooth (plots)
+* process all runs
+* plots for all runs (with distance)
+* 
+* fit_monsis filename
+

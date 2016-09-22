@@ -70,14 +70,14 @@ result_str = u"{}\t{}\t{}".format(filename, mpl_str, sigma_str)
 
 print(result_str.encode('utf-8').strip())
 #: Uncomment to plot the histogram and the fit
-#~ import matplotlib.pyplot as plt
-#~ hist_fit = gauss(bin_centres2, *coeff)
-#~ plt.step(bin_centres2, hist2, where='mid', label='Data')
-#~ plt.plot(bin_centres2, hist_fit, label="Fit")
-#~ plt.axvline(mpl+mpl_std, color='red', label=u"Peak: %s" % mpl_str)
+import matplotlib.pyplot as plt
+hist_fit = gauss(bin_centres2, *coeff)
+plt.step(bin_centres, hist, where='mid', label='Data')
+plt.plot(bin_centres2, hist_fit, label="Fit")
+plt.axvline(mpl+mpl_std, color='red', label=u"Peak: %s" % mpl_str)
 
-#~ plt.axvline(mpl-mpl_std, color='red')
-#~ plt.title(filename)
-#~ plt.legend()
-#~ plt.grid()
-#~ plt.show()
+plt.axvline(mpl-mpl_std, color='red')
+plt.title(filename)
+plt.legend(loc='upper left')
+plt.grid()
+plt.show()
