@@ -22,13 +22,17 @@ def main():
 	
 	args = parser.parse_args()
 	
-	ts_increment = HZ * 3600
+	ts_increment = HZ * 2
 	next_ts = ts_increment
 	count = {}  # {chan: count,}
 	hr = 0
 	channels = None
 	
 	for line in args.infile:
+		
+		if line[0] == '#':
+			continue  # skip comments
+		
 		ts, chan, rest = line[:-1].split('\t', 2) #stip '\n' without making a copy of the strin
 		ts = float(ts)
 		

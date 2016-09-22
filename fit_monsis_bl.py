@@ -65,20 +65,9 @@ var_error = np.sqrt(np.diag(var_matrix))
 result = zip(coeff, var_error)
 #~ print result
 mpl, mpl_std = result[1]
-mpl_str = u"{:.2f} ± {:.2f}".format(*result[1])
-sigma_str = u"{:.2f} ± {:.2f}".format(*result[2])
+mpl_str = u"{:.2f} a {:.2f}".format(*result[1])
+sigma_str = u"{:.2f} a {:.2f}".format(*result[2])
 
 print(u"{}\t{}\t{}".format(filename, mpl_str, sigma_str))
 
 #: Uncomment to plot the histogram and the fit
-import matplotlib.pyplot as plt
-hist_fit = gauss(bin_centres2, *coeff)
-plt.step(bin_centres2, hist2, where='mid', label='Data')
-plt.plot(bin_centres2, hist_fit, label="Fit")
-plt.axvline(mpl+mpl_std, color='red', label=u"Peak: %s" % mpl_str)
-
-plt.axvline(mpl-mpl_std, color='red')
-plt.title(filename)
-plt.legend()
-plt.grid()
-plt.show()

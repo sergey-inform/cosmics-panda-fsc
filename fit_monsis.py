@@ -12,7 +12,7 @@ from scipy.optimize import curve_fit
 
 # ------------ Parameters -----------------
 
-THRESHOLD = 40 * 1000  # filter values less than threshold
+THRESHOLD = 30 * 1000  # filter values less than threshold
 COL_IDX = 2  # which column contains values, starting from 0
 NBINS = 100  # a number of bins for the histogram
 
@@ -66,8 +66,9 @@ mpl, mpl_std = result[1]
 mpl_str = u"{:.2f} ± {:.2f}".format(*result[1])
 sigma_str = u"{:.2f} ± {:.2f}".format(*result[2])
 
-print(u"{}\t{}\t{}".format(filename, mpl_str, sigma_str))
+result_str = u"{}\t{}\t{}".format(filename, mpl_str, sigma_str)
 
+print(result_str.encode('utf-8').strip())
 #: Uncomment to plot the histogram and the fit
 #~ import matplotlib.pyplot as plt
 #~ hist_fit = gauss(bin_centres2, *coeff)
