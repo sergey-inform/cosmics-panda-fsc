@@ -6,6 +6,7 @@
 
 import sys, os
 import argparse
+from collections import Counter
 
 HZ = 250 * 1000 * 1000 # timestamp = HZ * seconds
 
@@ -22,9 +23,9 @@ def main():
 	
 	args = parser.parse_args()
 	
-	ts_increment = HZ * 2
+	ts_increment = HZ * 3600
 	next_ts = ts_increment
-	count = {}  # {chan: count,}
+	count = Counter()
 	hr = 0
 	channels = None
 	
@@ -33,29 +34,26 @@ def main():
 		if line[0] == '#':
 			continue  # skip comments
 		
-		ts, chan, rest = line[:-1].split('\t', 2) #stip '\n' without making a copy of the strin
+		line = '\t'.join(line.split())
+		ts, chan, rest = line[:-1].split('\t', 2)  #stip '\n' without making a copy of the string
 		ts = float(ts)
 		
-		if chan not in count:
-			count[chan] = 0
-		
 		count[chan] += 1
-		
 
 		if ts > next_ts:
 			hr +=1
 			next_ts = ts + ts_increment
 			
 			if not channels:
-				channels = sorted(count)
+				channels = sorted(count.keys())
 				#print header
-				print("\t".join(["hr"] + channels) )
+				print("\t".join(["hr\chan"] + channels) )
 			
 			#print the data
 			values = [count[c] for c in channels]
 			print('%d\t%s' % (hr, '\t'.join( map(str, values) ) ) ) 
 			
-			count = {}
+			count = Counter()
 		
 	
 if __name__ == "__main__":

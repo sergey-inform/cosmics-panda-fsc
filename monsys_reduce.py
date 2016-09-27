@@ -51,6 +51,6 @@ for x in loaded:
     stddata[chan].append(std)
 
     if len(data[chan]) >= chunklen:
-        print ts, chan, np.average(data[chan]), np.average(stddata[chan])
+        print '{:.0f} {} {:.2f} {:.2f}'.format(ts, chan, np.average(data[chan]), np.average(stddata[chan]))
         data[chan] = []
         stddata[chan] = []
