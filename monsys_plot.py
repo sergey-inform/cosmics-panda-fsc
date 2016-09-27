@@ -54,7 +54,7 @@ for chan in chans:
     #~ ts = data['ts'] - data['ts'].min(axis=0)
     #~ ts = ts/3600  # sec -> hrs
     dtts = [dt.datetime.utcfromtimestamp(_) for _ in ts]
-    ax.errorbar(dtts, val_normed, std_normed, label=chan)
+    ax.errorbar(dtts, val_normed, std_normed, label=str(chan))
     #ax.errorbar(dtts, data['val'], data['std'], label=chan)
 
 ax.xaxis_date()
