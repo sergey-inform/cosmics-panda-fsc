@@ -67,8 +67,9 @@ mpl, mpl_std = result[1]
 mpl_str = u"{:.2f} ± {:.2f}".format(*result[1])
 sigma_str = u"{:.2f} ± {:.2f}".format(*result[2])
 
-print(u"{}\t{}\t{}".format(filename, mpl_str, sigma_str))
+result_str = u"{}\t{}\t{}".format(filename, mpl_str, sigma_str)
 
+print(result_str.encode('utf-8').strip())
 #: Uncomment to plot the histogram and the fit
 import matplotlib.pyplot as plt
 hist_fit = gauss(bin_centres2, *coeff)
