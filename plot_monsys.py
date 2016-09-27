@@ -18,8 +18,7 @@ import matplotlib.dates as mdates
 COL_TS_IDX = 0  # which column contains timestamps, starting from 0
 COL_CHAN_IDX = 1
 COL_VAL_IDX = 2
-COL_STD_IDX = 4
-
+COL_STD_IDX = 3
 
 # -----------------------------------------
 
@@ -34,7 +33,7 @@ if not os.path.isfile(filename):
     
 dtype = np.dtype({
         'names': ['ts', 'chan', 'val', 'std'],
-        'formats' : ['int', 'int', 'f','f'],
+        'formats' : ['float', 'int', 'f','f'],
         })
 
 usecols = (COL_TS_IDX, COL_CHAN_IDX, COL_VAL_IDX, COL_STD_IDX)
@@ -55,12 +54,12 @@ for chan in chans:
     #~ ts = data['ts'] - data['ts'].min(axis=0)
     #~ ts = ts/3600  # sec -> hrs
     dtts = [dt.datetime.utcfromtimestamp(_) for _ in ts]
-
     ax.errorbar(dtts, val_normed, std_normed, label=chan)
+    #ax.errorbar(dtts, data['val'], data['std'], label=chan)
 
-#~ ax.xaxis_date()
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%H'))
-ax.xaxis.set_major_locator(mdates.HourLocator(byhour=range(0,24,6)))
+ax.xaxis_date()
+#ax.xaxis.set_major_formatter(mdates.DateFormatter('%H'))
+#ax.xaxis.set_major_locator(mdates.HourLocator(byhour=range(0,24,6)))
 
 fig.autofmt_xdate()
 
@@ -68,8 +67,8 @@ fig.autofmt_xdate()
 #~ stepsize = 4
 #~ ax.xaxis.set_ticks(np.arange(start, end, stepsize))
 
-yticks = ax.get_yticks()
-ax.set_yticklabels(['{:3.3f}%'.format(_*100) for _ in yticks])
+#yticks = ax.get_yticks()
+#ax.set_yticklabels(['{:3.3f}%'.format(_*100) for _ in yticks])
 
 plt.xlabel('Hours')
 plt.ylabel('Baseline value (normalized)')

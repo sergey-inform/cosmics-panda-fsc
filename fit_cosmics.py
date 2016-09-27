@@ -21,7 +21,7 @@ VALUE_COLUMN = 2  # a column number with the value
 CHANNEL_COLUMN = 1  # a column number for channel, None if not the case
 
 gui = False
-#gui = True
+gui = True
 
 threshold = 200
 

@@ -1,6 +1,4 @@
-* compare fit with kde smooth (plots)
-* process all runs
-* plots for all runs (with distance)
+* monsys_adjust.py
+* shift to a new point
 * 
-* fit_monsis filename
 

@@ -12,9 +12,10 @@ from scipy.optimize import curve_fit
 
 # ------------ Parameters -----------------
 
-THRESHOLD = 30 * 1000  # filter values less than threshold
+THRESHOLD = 2 * 1000  # filter values less than threshold
 COL_IDX = 2  # which column contains values, starting from 0
 NBINS = 100  # a number of bins for the histogram
+RANGE = (2000, 10000)
 
 # -----------------------------------------
 
@@ -33,7 +34,7 @@ data = loaded[loaded>THRESHOLD]  # filter data
 #~ print 'N:', len(data), 'FILTERED:', len(loaded) - len(data)
 #~ del loaded  # free some memory
 
-hist, bin_edges = np.histogram(data, bins=NBINS)
+hist, bin_edges = np.histogram(data, bins=NBINS, range = RANGE)
 bin_centres = (bin_edges[:-1] + bin_edges[1:])/2
 bin_cnt = len(bin_centres)
 max_y = max(hist)
