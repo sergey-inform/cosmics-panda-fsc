@@ -20,14 +20,14 @@ def print_data(ts, data):
         return 
 
     for chan, values in data.items():
-        if len(values) > 100 or len(values) < 50:
+        if len(values) > 150 or len(values) < 50:
             continue
         arr = np.array(values)
         range_ = np.percentile(arr, [10 ,90])
         rarr = arr[(arr> range_[0]) & (arr<range_[1])]
        
         if len(rarr):
-            print '{:.2f} {} {:.2f} {:.3f} {}'.format(tssec, chan, np.average(rarr), np.std(rarr), len(rarr))
+            print '{:.2f} {} {:.2f} {:.3f} {}'.format(ts, chan, np.average(rarr), np.std(rarr), len(rarr))
 
 
 ts_prev = None
@@ -47,6 +47,7 @@ for line in fd:
 
     if ts_prev and ts - ts_prev > TS_GAP:
         # a new series of pulses 
+	print 'PRDATA', ts, data.keys()
         print_data(ts, data)
         data = {}
     
