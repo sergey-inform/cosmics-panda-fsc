@@ -20,6 +20,7 @@ COL_CHAN_IDX = 1
 COL_VAL_IDX = 2
 COL_STD_IDX = 3
 
+HZ = 250 * 1000*1000
 # -----------------------------------------
 
 if len(sys.argv) != 2:
@@ -51,6 +52,8 @@ for chan in chans:
     val_normed =  data['val'] / data['val'][0]
     std_normed =  data['std'] / data['val'][0]
     ts = data['ts']
+    if ts[-1] > 1500000000:
+        ts = ts/HZ
     #~ ts = data['ts'] - data['ts'].min(axis=0)
     #~ ts = ts/3600  # sec -> hrs
     dtts = [dt.datetime.utcfromtimestamp(_) for _ in ts]
