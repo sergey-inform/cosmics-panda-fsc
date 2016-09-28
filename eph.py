@@ -27,12 +27,15 @@ def main():
 	next_ts = ts_increment
 	count = Counter()
 	hr = 0
+        lineno = 0
 	channels = None
 	
 	for line in args.infile:
 		
 		if line[0] == '#':
 			continue  # skip comments
+
+                lineno +=1
 		
 		line = '\t'.join(line.split())
 		ts, chan, rest = line[:-1].split('\t', 2)  #stip '\n' without making a copy of the string
@@ -51,7 +54,7 @@ def main():
 			
 			#print the data
 			values = [count[c] for c in channels]
-			print('%d\t%s' % (hr, '\t'.join( map(str, values) ) ) ) 
+			print('%d\t%s\t%d' % (hr, '\t'.join( map(str, values) ), lineno ) ) 
 			
 			count = Counter()
 		
