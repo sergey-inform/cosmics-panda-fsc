@@ -181,7 +181,7 @@ def maxmin_smooth(data, range_, nminima, nmaxima):
     # Increase factor value (smooth harder)
     # until get desired number of max and min points.
     
-    factors = np.linspace(0.05,0.09,40,endpoint=True)
+    factors = np.linspace(0.05,0.09,20,endpoint=True)
     
     for factor in factors:
         
