@@ -28,8 +28,10 @@ DEFAULT_BINS_NUMBER = 50
 colors = cycle(COLORS)
 
 import rootpy.compiled as C
-pwd = os.path.dirname(__file__)
-C.register_file( pwd + "/mylangaus.cxx", ["langaufun"])
+#pwd = os.path.dirname(__file__)
+#print 'PWD', pwd
+#C.register_file( pwd + "/mylangaus.cxx", ["langaufun"])
+C.register_file( "mylangaus.cxx", ["langaufun"])
 
 
 #TODO: use KDE for smoothing histograms https://root.cern.ch/root/html/tutorials/math/exampleTKDE.C.html
