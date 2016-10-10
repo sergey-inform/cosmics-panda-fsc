@@ -28,6 +28,7 @@ def makedirs(path):
     if folder and not os.path.exists(folder):
         os.makedirs(folder)
 
+
 def setlog(name, logfile="", console_lvl='INFO', file_lvl='DEBUG',
         console_format=None, file_format=None):
     """ Set logging to file and console at the same time. """
@@ -117,15 +118,6 @@ def retry(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
 import re
 import numpy as np
 
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-def natural_keys(text):
-    '''
-    list.sort(key=natural_keys) sorts in human order
-    http://nedbatchelder.com/blog/200712/human_sorting.html
-    '''
-    return [ atoi(c) for c in re.split('(\d+)', text) ]
 
 def movingaverage(interval, window_size=3):
     window = np.ones(int(window_size))/float(window_size)
@@ -153,4 +145,3 @@ def common_start(*strings):
     return ''.join(_iter())
 
 
-# extrema

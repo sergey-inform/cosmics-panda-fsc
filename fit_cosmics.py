@@ -178,7 +178,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# try out scipy kde first
-# Randomly generate some langauss data, compare found peak with the true maximum.
-# choose bandwidth https://github.com/Daniel-B-Smith/KDE-for-SciPy/blob/master/kde.py
