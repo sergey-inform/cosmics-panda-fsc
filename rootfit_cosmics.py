@@ -235,12 +235,13 @@ def main():
             print 'RESULT {} {} MPL={:.2f} +-' \
                     '{:.2f} chi2={:.2f} ndf={:.2f}' \
                     ''.format(title,
-                            key,
+                            k,
                             fitres.Parameter(1),
                             fitres.ParError(1),
                             fitres.Chi2(),
                             fitres.Ndf()
                             )
+            print ['{:.2f}'.format(p) for p in fitres.Parameters()]
 
         root_plot(hists, fitfuncs, outfile=outfile, title=title)
             
