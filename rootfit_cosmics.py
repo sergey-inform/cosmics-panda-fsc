@@ -163,9 +163,6 @@ def parse_range(value):
     except ValueError:
         raise argparse.ArgumentTypeError('required one or two numbers separated by ":"')
 
-    if len(_range) == 1:
-        _range.insert(0, 0.0)
-
     return _range
 
 
@@ -203,8 +200,6 @@ def main():
     
     for chan in sorted(data, key=natural_keys):
        
-        print( "CH {}".format(chan))
-        
         cdata = data[chan]
         if not cdata:
             continue
@@ -214,13 +209,22 @@ def main():
                 if args.output else None
         
         hists = {}
+    
+        _range=args.range
+
+        if not _range:
+            _range = (0, args.params[1] * 2)
+
+        if len(_range) == 1:
+            _range = (_range[0], args.params[1] * 2)
+
         for key, vals in cdata.items():
-            hists[key] = root_hist(vals, args.bins, args.range)
+            hists[key] = root_hist(vals, args.bins, _range)
 
         initial_params = args.params
         #fit_start = initial_params[1]/2  # MPL/2
-        fit_start = args.range[0] + 100
-        fitrange = (fit_start, args.range[1])
+        fit_start = _range[0] + 100
+        fitrange = (fit_start, _range[1])
 
         fitfuncs = {}
         fitresults = {}
@@ -232,16 +236,19 @@ def main():
 
             fitfuncs[k] = fitfunc
             fitresults[k] = fitres
-            print 'RESULT {} {} MPL={:.2f} +-' \
-                    '{:.2f} chi2={:.2f} ndf={:.2f}' \
-                    ''.format(title,
-                            k,
+            strparams = '\t'.join( ['{:.2f}'.format(p) for p in fitres.Parameters()] )
+            print '{} chan {}\t {}\tMPL {:.2f} ' \
+                    '±{:.2f}\tchi2 {:.2f}\tndf {:.2f}\tparams {}' \
+                    ''.format(
+                            common_label,  # run
+                            chan,
+                            k,  # trig
                             fitres.Parameter(1),
                             fitres.ParError(1),
                             fitres.Chi2(),
-                            fitres.Ndf()
+                            fitres.Ndf(),
+                            strparams
                             )
-            print ['{:.2f}'.format(p) for p in fitres.Parameters()]
 
         root_plot(hists, fitfuncs, outfile=outfile, title=title)
             
