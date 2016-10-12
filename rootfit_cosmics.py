@@ -229,7 +229,7 @@ def main():
         fitfuncs = {}
         fitresults = {}
 
-        for k in hists:
+        for k in sorted(hists):
             fitfunc, fitres = langaus_fit(hists[k], 
                                         fitrange,
                                         initial_params)
@@ -268,7 +268,7 @@ def root_plot(hists, fitfuncs={}, outfile=None, title=''):
     if not single:
         ROOT.gStyle.SetOptStat(0)  # Hide statistics
     
-    for idx, k in enumerate(hists):  # TODO: sort
+    for idx, k in enumerate(sorted(hists)):
         hist = hists[k]
 
         hist_color = next(colors)
