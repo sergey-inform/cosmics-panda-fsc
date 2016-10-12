@@ -25,7 +25,7 @@ MISSING = '-'
 # the first line in 'distances.txt' is a header with the names of points.
 
 points = next(dfile)[:-1].upper().split(DELIM)[1:]
-print 'POINTS:', points
+#print 'POINTS:', points
 
 clines = [line for line in cfile]
 

@@ -16,13 +16,12 @@ import os
 import argparse
 from util import natural_keys
 
-
-CHAN_COL = 0
-RUN_COL = 1
-TRIG_COL = 2
-MPL_COL = 3
-STD_COL = 0
-CHI2_COL = 1
+RUN_COL = 0
+CHAN_COL = 2
+TRIG_COL = 3
+MPL_COL = 5
+STD_COL = 14
+CHI2_COL = 8
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
@@ -121,15 +120,15 @@ def main():
             if chan not in values:
                 values[chan] = []
                 
-            values[chan].append((run, val))
+            values[chan].append((run, val, trigs[0], trigs[1]))
     
     if not args.table:
         for chan, cvals in nsort(values):
-            for run, val in cvals:
+            for run, val, trig0, trig1 in cvals:
                 if args.distance:
-                    print "{} {} {} {:.4}".format( run, chan, args.distance, val)
+                    print "{} {} {} {} {} {:.4}".format( run, chan, args.distance, trig0, trig1, val)
                 else:
-                    print "{} {} {:.4}".format( run, chan, val)
+                    print "{} {} {} {} {:.4}".format( run, chan, trig0, trig1,  val)
 
     else:
         runs = set([ rvals[0] for cvals in values.values() for rvals in cvals])
