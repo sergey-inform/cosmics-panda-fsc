@@ -72,7 +72,19 @@
       
 График результат-дистанция
 -----------
+Сперва создаем файл aux/combinations.txt, в котором перечислены пары всех интересующих нас комбинаций триггеров.
 
+Затем создаем файл aux/distances.txt, в котором для каждого run'а рассчитана комбинация между точками, входящими в триггер.
+
+После этого в каталоге aux выполняем команду ./distance-combination.py, которая совместит значения из этих двух файлов. в файл distance-combination.txt
+ 
+Для построения результирующего графика (величины светосбора в зависисмости от расстояния) выполняем команду ./aux/fit_coeff.py для всех комбинаций триггеров и расстояний из файла ./distance-combination.txt:
+
+```Shell
+  cat aux/distance-combination.txt | while read run trig1 trig2 dist ; do ./aux/fit_coeff.py fitlog_sep21 $trig1 $trig2 -d $dist | grep $run; done
+```
+
+Построить график можно командой aux/plot_result.py или aux/pandas-try.py.
   
 Дополнительные шаги обработки данных
 -----------
@@ -104,6 +116,13 @@
   ```Shell
     for file in `ls data/??.txt`; do ./monsys_adjust.py  $file  mon_reduced1000.txt > data_adj/$(basename $file); echo $file; done
   ```
+  
+Прочие утилиты
+-------------
+
+  * set_hv.py -- выставить высокое напряжение на модуле HVUnit. 
+  * hvtune.py -- измерить частоту событий при разных значениях HV (для поиска оптимума HV).
+
   
 Особенности
 -----------
