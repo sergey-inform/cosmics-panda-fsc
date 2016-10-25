@@ -16,7 +16,7 @@
 Установка
 ---------
   
-Запуск
+Команды для обработки данных
 ------
   1. Обработка сырых данных:
     ```Shell
@@ -33,6 +33,8 @@
     # It's clever to gzip processed data files.
     pigz -v *.dat
     ````
+  
+  1*. Удаляем всплески данных.
         
   2. Поиск совпадающих событий:
     ```Shell
@@ -76,8 +78,10 @@
   
   
   5. Фитируем данные вручную (пакетом ROOT):
+  ![Fit trig data](/../new-version/screenshots/rootfit_cosmics.png?raw=true "Fit example")
   
   6. Находим максимум в автоматическом режиме ([усреднением с KDE](https://en.wikipedia.org/wiki/Kernel_density_estimation)):
+  
   
   
 Особенности
