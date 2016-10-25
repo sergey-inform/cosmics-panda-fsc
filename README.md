@@ -63,11 +63,12 @@
     dir=run_1/trig/; ./rootfit_cosmics.py -q ${dir}*.trig 20,450,10,100,30,10 --range 100:5000 -c 15
   ```
   Screenshot:
+  
   <img alt="fit trig data" src="/../new-version/screenshots/rootfit_cosmics.png?raw=true" width="600">
   
   4. Находим пики в автоматическом режиме ([усреднением с KDE](https://en.wikipedia.org/wiki/Kernel_density_estimation))::
  
-      ./fit_cosmics.py data/run_1/trig/*.txt
+          ./fit_cosmics.py data/run_1/trig/*.txt
       
 График результат-дистанция
 -----------
@@ -82,11 +83,11 @@
   
   Для отображения числа событий в час используйте утилиту ./aux/eph.py
   
-    ./aux/eph.py data/run_1/trig/ax.txt
+      ./aux/eph.py data/run_1/trig/ax.txt
   
   Убрать всплески можно так (для каждого файла .txt создаем файл .trig с данными без всплесков):
      
-     find -name \*.txt  -not -name mon.txt -not -name all.txt | tee | parallel ../aux/eph-filter.py {} \> {.}.trig
+       find -name \*.txt  -not -name mon.txt -not -name all.txt | tee | parallel ../aux/eph-filter.py {} \> {.}.trig
 
   2. Коррекция по данным мониторной системы:
   Если набор данных проводился утилитой readout_monsys.py, то раз в несколько секунд на выход UI АЦП подавались импульсы для запуска источника света мониторной системы. Таким образом, в каналах, подсвеченной мониторной системой, будет два типа событий: космика и мониторная система. Отделить одни от других можно по амплитуде, либо отобрав события мониторной системы по совпадению во всех подсвеченных каналах.
