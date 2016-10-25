@@ -148,12 +148,23 @@ def parse_chans(value):
 
 
 def parse_fit_params(value):
-    params = map(float,value.split(','))
-    if len(params) != 6:
+    sparams = value.split(',')
+    if len(sparams) != 6:
         raise argparse.ArgumentTypeError(
                 "need exactly 6 parameters for langaus function."
                 )
-    return params
+    params = []
+    fixed = []
+
+    for idx, p in enumerate(sparams):
+        if p[0] == '_':  # fixed parameter
+            param = float(p[1:])
+            fixed.append(idx)
+        else:
+            param = float(p)
+        params.append(param)
+
+    return params, fixed
 
 
 def parse_range(value):
@@ -211,17 +222,18 @@ def main():
         hists = {}
     
         _range=args.range
+        
+        fit_params, fit_fixed = args.params
 
         if not _range:
-            _range = (0, args.params[1] * 2)
+            _range = (0, fit_params[1] * 2)
 
         if len(_range) == 1:
-            _range = (_range[0], args.params[1] * 2)
+            _range = (_range[0], fit_params[1] * 2)
 
         for key, vals in cdata.items():
             hists[key] = root_hist(vals, args.bins, _range)
 
-        initial_params = args.params
         #fit_start = initial_params[1]/2  # MPL/2
         fit_start = _range[0] + 100
         fitrange = (fit_start, _range[1])
@@ -232,7 +244,8 @@ def main():
         for k in sorted(hists):
             fitfunc, fitres = langaus_fit(hists[k], 
                                         fitrange,
-                                        initial_params)
+                                        fit_params,
+                                        fixed=fit_fixed)
 
             fitfuncs[k] = fitfunc
             fitresults[k] = fitres
@@ -382,7 +395,7 @@ def freedman_bin_width(data):
     return nbins
     
 
-def langaus_fit(hist, fitrange, parameters, fix_parameters=[]):
+def langaus_fit(hist, fitrange, parameters, fixed=[]):
     """ Fit a ROOT TH1 with langauss + exponential noize. 
     
         Return the fit function and a fit result object.
@@ -396,7 +409,8 @@ def langaus_fit(hist, fitrange, parameters, fix_parameters=[]):
     fitfunc.SetParNames ('Langaus Width Landau','Langaus MPL','Langaus Area','Langaus Width Gauss','expA','expB')
     fitfunc.SetParameters(*parameters)
     
-    #TODO: fixed parameters
+    for i in fixed:
+        fitfunc.FixParameter(i, parameters[i])
 
     # SQMRN = S(ave fitres), Quiet, More (improve results), Range (of the function), No (drawing)
     fitres = hist.Fit(fitfunc, "SQMRN+" )
