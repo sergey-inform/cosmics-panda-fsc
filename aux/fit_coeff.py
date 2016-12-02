@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
     Read analysis results.
     Calculate coefficients for each channel:
@@ -20,6 +21,7 @@ RUN_COL = 0
 CHAN_COL = 2
 TRIG_COL = 3
 MPL_COL = 5
+ERR_COL = 6
 STD_COL = 14
 CHI2_COL = 8
 
@@ -43,11 +45,6 @@ def main():
             help='trigger B'
             )
             
-    parser.add_argument('-t', '--table',
-            action='store_true',
-            help="print as a table"
-            )
-
     parser.add_argument('-d', '--distance',
             type=str,
             help="print distance"
@@ -77,6 +74,9 @@ def main():
 	    
 	    trig = sline[TRIG_COL]
             mpl = sline[MPL_COL]
+            err = sline[ERR_COL]
+            err = err.translate(None,'±')
+
             std = sline[STD_COL]
             chi2_ndf = sline[CHI2_COL]
 
@@ -96,7 +96,7 @@ def main():
         if run not in data[chan]:
             data[chan][run] = {}
             
-        data[chan][run][trig] = mpl
+        data[chan][run][trig] = (mpl,err)
 
 
     def nsort(dic):
@@ -110,50 +110,27 @@ def main():
         for run, rdata in nsort(cdata):
             if len(rdata) < 2: 
                 continue
-            valA = float(rdata[trigs[0]])
-            valB = float(rdata[trigs[1]])
+            valA, errA = map(float, rdata[trigs[0]])
+            valB, errB  = map(float, rdata[trigs[1]])
+            
             if valB != 0:
                 val = 1.0 * valA / valB
+                err = val - (valA + errA)/(valB - errB)
             else:
                 val = None
+                err = None
     
             if chan not in values:
                 values[chan] = []
                 
-            values[chan].append((run, val, trigs[0], trigs[1]))
+            values[chan].append((run, (val, err) , trigs[0], trigs[1]))
     
-    if not args.table:
-        for chan, cvals in nsort(values):
-            for run, val, trig0, trig1 in cvals:
-                if args.distance:
-                    print "{} {} {} {} {} {:.4}".format( run, chan, args.distance, trig0, trig1, val)
-                else:
-                    print "{} {} {} {} {:.4}".format( run, chan, trig0, trig1,  val)
+    for chan, cvals in nsort(values):
+        for run, (val,err), trig0, trig1 in cvals:
+            if args.distance:
+                print "{} {} {} {} {} {:.4} ±{:.2}".format( run, chan, args.distance, trig0, trig1, val, abs(err))
+            else:
+                print "{} {} {} {} {:.4} ±{:.2}".format( run, chan, trig0, trig1,  val, abs(err))
 
-    else:
-        runs = set([ rvals[0] for cvals in values.values() for rvals in cvals])
-        runs = [_ for _ in sorted(runs, key=natural_keys)]
-        allruns = [_ for _ in sorted(allruns, key=natural_keys)]
-       
-        #~ print "runs:\t{}".format("\t".join(runs))
-        print "ch\\run:\t{}".format("\t".join(allruns)) + "\tTrigA\tTrigB"
-        
-        for chan, cvals in nsort(values):
-            sys.stdout.write("{}".format(chan))
-            dvals = dict(cvals)
-            
-            #~ for run in runs:
-            for run in allruns:
-                if run in dvals:
-                    sys.stdout.write( "\t{:.4}".format(dvals[run]))
-                else:
-                    sys.stdout.write( "\t-")
-            
-            sys.stdout.write("\t{}\t{}".format(*trigs))
-            sys.stdout.write("\n")
-                
-                
-    
- 
 if __name__ == "__main__":
     main()

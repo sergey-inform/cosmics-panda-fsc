@@ -24,7 +24,7 @@ def main():
     args = parser.parse_args()
     
     next_ts = None
-    ts_increment = HZ * 60
+    ts_increment = HZ * 60 * 60
     count = Counter()
     hr = 0
     lineno = 0

@@ -19,7 +19,7 @@ for line in file:
     if line[0] == "#":
         continue
 #    chan, val, dist, run, trig1, trig2 = line.split('\t')
-    run, chan, dist, trig1, trig2, val = line.split()
+    run, chan, dist, trig1, trig2, val, err = line.split()
      
     chan = int(chan)
     if chan not in data:
@@ -59,7 +59,7 @@ for chan, cresult in sorted(results.items()):
     low = [ cresult[k]['min'] for k in keys ]
         
     plt.errorbar(x, y, yerr = err, label = chan, fmt="s--")
-    #boxdata = np.concatenate( data )
+    #boxdata = np.concaddtenate( data )
     #plt.boxplot(boxdata)
 
     plt.title("chan %s" % chan)
@@ -67,4 +67,4 @@ for chan, cresult in sorted(results.items()):
     #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
     plt.grid()
     plt.show()
-    #~ plt.savefig("{}.png".format(chan))
+#    plt.savefig("{}.png".format(chan))

@@ -8,7 +8,7 @@ from itertools import cycle
 fp = sys.argv[1]
 
 df = pd.read_csv(fp, sep=' ', header=None)
-columns = ['run', 'chan', 'dist', 'trigA', 'trigB', 'value']
+columns = ['run', 'chan', 'dist', 'trigA', 'trigB', 'value','err']
 df.columns = columns
 
 print df
@@ -27,14 +27,15 @@ for chan in chans:
  for group in groups:
   s = df[(df['chan'] == chan) & (df['group'] == group) & (df['value']>0.5)]
   #plt.scatter(s['dist'], s['value'], label=group, c = color.next(), marker=marker.next())
-  plt.plot(s['dist'], s['value'], label=group, c = color.next(), marker=marker.next())
+  #plt.plot(s['dist'], s['value'], label=group, c = color.next(), marker=marker.next())
+  plt.errorbar(s['dist'], s['value'], s['err'], label=group, c = color.next(), marker=marker.next())
  
  ax = plt.gca()
  ax.set_xlim(0)
- ax.set_ylim(0.95,1.25)
+ ax.set_ylim(0.95,1.30)
  plt.axhline(1.0, color='black')
  plt.legend(loc='upper left')
  plt.title(chan)
  plt.show()
- #plt.savefig('{}.png'.format(chan))
+ plt.savefig('{}.png'.format(chan))
 

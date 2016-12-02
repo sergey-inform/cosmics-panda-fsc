@@ -30,6 +30,8 @@ points = next(dfile)[:-1].upper().split(DELIM)[1:]
 clines = [line for line in cfile]
 
 for dline in dfile:
+	if dline[0] == '#':
+		continue
 	dline = dline[:-1]  # strip \n
 	dsplit = dline.split(DELIM)
 	

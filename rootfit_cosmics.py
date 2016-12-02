@@ -137,7 +137,7 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if not args.quiet:
+    if args.debug:
         print_err(args)
 
     return args
@@ -192,6 +192,9 @@ def main():
     if not args.quiet:
         print_err('channels: {}', str(args.chan) )
         print_err('outpath: {}', args.output)
+        if args.debug:
+            print_err(LANGAUS_FUNC)
+        print_err(LANGAUS_NAMES)
 
     # 
     data = defaultdict(dict)
@@ -245,11 +248,12 @@ def main():
             fitfunc, fitres = langaus_fit(hists[k], 
                                         fitrange,
                                         fit_params,
-                                        fixed=fit_fixed)
+                                        fixed=fit_fixed,
+                                        verbose = args.debug)
 
             fitfuncs[k] = fitfunc
             fitresults[k] = fitres
-            strparams = '\t'.join( ['{:.2f}'.format(p) for p in fitres.Parameters()] )
+            strparams = ' '.join( ['{:.2f}'.format(p) for p in fitres.Parameters()] )
             print '{} chan {}\t {}\tMPL {:.2f} ' \
                     '±{:.2f}\tchi2 {:.2f}\tndf {:.2f}\tparams {}' \
                     ''.format(
@@ -261,8 +265,10 @@ def main():
                             fitres.Chi2(),
                             fitres.Ndf(),
                             strparams
-                            )
-
+                        )
+            if args.debug:
+                pass
+        
         root_plot(hists, fitfuncs, outfile=outfile, title=title)
             
 
@@ -393,9 +399,12 @@ def freedman_bin_width(data):
     nbins = max(1, np.ceil((dmax - dmin) / dx))
     
     return nbins
-    
 
-def langaus_fit(hist, fitrange, parameters, fixed=[]):
+
+LANGAUS_FUNC = 'langaufun(&x,[0],[1],[2],[3]) + 0.001*[4]*exp(-0.0001*[5]*x)'
+LANGAUS_NAMES = 'Langaus Width Landau','Langaus MPL','Langaus Area','Langaus Width Gauss','expA','expB'
+
+def langaus_fit(hist, fitrange, parameters, fixed=[], verbose=False):
     """ Fit a ROOT TH1 with langauss + exponential noize. 
     
         Return the fit function and a fit result object.
@@ -405,15 +414,18 @@ def langaus_fit(hist, fitrange, parameters, fixed=[]):
 
     langaufun = ROOT.TF1( 'langaufun', C.langaufun, fitXmin, fitXmax )
     
-    fitfunc = ROOT.TF1( 'fitfunc', 'langaufun(&x,[0],[1],[2],[3]) + 0.001*[4]*exp(-0.0001*[5]*x)', fitXmin, fitXmax )
-    fitfunc.SetParNames ('Langaus Width Landau','Langaus MPL','Langaus Area','Langaus Width Gauss','expA','expB')
+    fitfunc = ROOT.TF1( 'fitfunc', LANGAUS_FUNC, fitXmin, fitXmax )
+    fitfunc.SetParNames(*LANGAUS_NAMES)
     fitfunc.SetParameters(*parameters)
     
     for i in fixed:
         fitfunc.FixParameter(i, parameters[i])
 
     # SQMRN = S(ave fitres), Quiet, More (improve results), Range (of the function), No (drawing)
-    fitres = hist.Fit(fitfunc, "SQMRN+" )
+    fitopts = "SMRN+"
+    if not verbose:
+        fitopts += "Q"
+    fitres = hist.Fit(fitfunc, fitopts )
     return fitfunc, fitres
 
 if __name__ == "__main__":
