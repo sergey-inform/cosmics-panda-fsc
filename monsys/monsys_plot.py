@@ -57,12 +57,13 @@ for chan in chans:
     #~ ts = data['ts'] - data['ts'].min(axis=0)
     #~ ts = ts/3600  # sec -> hrs
     dtts = [dt.datetime.utcfromtimestamp(_) for _ in ts]
-    ax.errorbar(dtts, val_normed, std_normed, label=str(chan))
+    #ax.errorbar(dtts, val_normed, std_normed, label=str(chan))
+    ax.plot(dtts,val_normed, label=str(chan))
     #ax.errorbar(dtts, data['val'], data['std'], label=chan)
 
 ax.xaxis_date()
-#ax.xaxis.set_major_formatter(mdates.DateFormatter('%H'))
-#ax.xaxis.set_major_locator(mdates.HourLocator(byhour=range(0,24,6)))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%H'))
+ax.xaxis.set_major_locator(mdates.HourLocator(byhour=range(0,24,2)))
 
 fig.autofmt_xdate()
 

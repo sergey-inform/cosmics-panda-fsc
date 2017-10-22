@@ -33,6 +33,9 @@ for line in file:
 
 results = OrderedDict()
 
+exit(0)
+
+
 for chan, distval in data.items():
         results[chan] = {}
 
