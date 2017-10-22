@@ -4,7 +4,11 @@ import sys
 import numpy as np
 
 filename = sys.argv[1]
-fd = open(filename,'ro')
+
+if filename != "-":
+	fd = open(filename,'ro')
+else:
+	fd = sys.stdin
 
 TS_COL, CHAN_COL, VAL_COL = 0, 1, 2
 

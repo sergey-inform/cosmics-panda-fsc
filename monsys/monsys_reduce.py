@@ -16,7 +16,7 @@ COL_CHAN_IDX = 1
 COL_VAL_IDX = 2
 COL_STD_IDX = 3
 
-DATAPOINTS = 100
+DATAPOINTS = 5000
 
 # -----------------------------------------
 
