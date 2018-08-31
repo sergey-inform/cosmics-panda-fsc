@@ -22,20 +22,23 @@ from util import setlog#, log_errors
 from util import retry
 
 # https://github.com/sergey-inform/SIS3316
+
+sys.path.append('/home/daq/cosmics-panda-fsc/')
+
 import sis3316
 
 # https://github.com/sergey-inform/panda-fsc-hvctl
 from hvctl import HVUnit
 
 OUTDIR = "./hvtune_out/"
-hv_range = range(2000, 2601, 25)
-threshold_range = range(60, 91, 15)
+hv_range = range(2300, 2350, 50)
+threshold_range = range(150,500,30)
 
 EVENT_SZ = 35
 #~ hv_addr = ('localhost', 2217)
 HV_ADDR = ('172.22.60.202', 2217)
-#~ adc_addr = ('10.0.0.1', 3344)
-ADC_ADDR = ('172.22.60.202', 2223)
+ADC_ADDR = ('10.0.0.1', 3344)
+#ADC_ADDR = ('172.22.60.202', 2223)
 
 HV_CHANS = { # channel to HV channel
     0:  0,
@@ -262,6 +265,7 @@ class ADC(object):
                 rates.append(round(rate,3))
             
             
+            sys.stderr.write("{}  \n".format(rates))
             if prev_rates:
                 rate_rel = [round(abs(1-a/b),4) if b != 0 else 0 for a, b in zip(rates,prev_rates)]
                 sys.stderr.write("{}  \r".format(rate_rel))
@@ -282,7 +286,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
             formatter_class=argparse.RawTextHelpFormatter)
     # --channels
-    channels = range(0,16)
+    channels = range(12,16)
     
     args = parser.parse_args()
     #~ print args
