@@ -62,8 +62,8 @@ for chan in chans:
     #ax.errorbar(dtts, data['val'], data['std'], label=chan)
 
 ax.xaxis_date()
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%H'))
-ax.xaxis.set_major_locator(mdates.HourLocator(byhour=range(0,24,2)))
+#ax.xaxis.set_major_formatter(mdates.DateFormatter('%H'))
+#ax.xaxis.set_major_locator(mdates.HourLocator(byhour=range(0,24,6)))
 
 fig.autofmt_xdate()
 

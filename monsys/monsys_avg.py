@@ -4,7 +4,11 @@ import sys
 import numpy as np
 
 filename = sys.argv[1]
-fd = open(filename,'ro')
+
+if filename != "-":
+	fd = open(filename,'ro')
+else:
+	fd = sys.stdin
 
 TS_COL, CHAN_COL, VAL_COL = 0, 1, 2
 
@@ -39,9 +43,14 @@ ts_prev = None
 for line in fd:
     
     values = line.split()
-    ts = int(values[TS_COL])
-    chan = values[CHAN_COL]
-    val = float(values[VAL_COL])
+
+    try:
+        ts = int(values[TS_COL])
+        chan = values[CHAN_COL]
+        val = float(values[VAL_COL])
+    except:
+        continue
+
 
 
     if val < THRESHOLD:
@@ -55,7 +64,7 @@ for line in fd:
 
     if ts_prev and ts - ts_prev > TS_GAP:
         # a new series of pulses 
-	#print 'PRDATA', ts, data.keys()
+		#print 'PRDATA', ts, data.keys()
         print_data(ts, data)
         data = {}
 

@@ -93,7 +93,8 @@ class Coinc(object):
 				raise
 			
 			if ts < prev_ts:
-				raise ValueError('input is not sorted, iostream line: %d' % lineno,)
+		#		raise ValueError('input is not sorted, iostream line: %d (ts %d < %d)' % (lineno,ts, prev_ts))
+				logging.error( 'input is not sorted, iostream line: %d (ts %d < %d)' % (lineno,ts, prev_ts) )
 			
 			if val < threshold:	# always false if threshold is None
 				self.counts['nthreshold'] += 1
